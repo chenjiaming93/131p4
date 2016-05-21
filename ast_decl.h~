@@ -33,6 +33,7 @@ class Decl : public Node
   public:
     Decl() : id(NULL) {}
     Decl(Identifier *name);
+    llvm::Value* Emit();
     Identifier *GetIdentifier() const { return id; }
     friend ostream& operator<<(ostream& out, Decl *d) { return out << d->id; }
 
@@ -70,10 +71,9 @@ class FnDecl : public Decl
     Type *returnType;
     TypeQualifier *returnTypeq;
     Stmt *body;
-    
+    llvm::Value* Emit();
     
   public:
-    llvm::Value* Emit();
     FnDecl() : Decl(), formals(NULL), returnType(NULL), returnTypeq(NULL), body(NULL) {}
     FnDecl(Identifier *name, Type *returnType, List<VarDecl*> *formals);
     FnDecl(Identifier *name, Type *returnType, TypeQualifier *returnTypeq, List<VarDecl*> *formals);

@@ -41,18 +41,8 @@ void VarDecl::PrintChildren(int indentLevel) {
    if (assignTo) assignTo->Print(indentLevel+1, "(initializer) ");
 }
 llvm::Value* VarDecl::Emit(){
-    llvm::Module *module =irgen->GetOrCreateModule("glsl.bc");
-    llvm::Type *type=irgen->GetType(this->GetType());
-    llvm::Twine*twine=new llvm::Twine(this->id->GetName());
-    if (symtab->currScope==1)//Global Var
-    {
-    	llvm::GlobalVariable *var = new llvm::GlobalVariable(module,type,false,llvm::GlobalValue::ExternalLinkage,llvm::Constant::getNullValue(type),*twine);
-    }
-    else//local var
-    {
-    	llvm::BasicBlock* bb = Node::irgen->GetBasicBlock();
-        llvm::Value *val =  new llvm::AllocaInst(type,*twine, bb);
-    }
+    llvm::Module *mod  = irgen->GetOrCreateModule("glsl.bc");
+    llvm::Type *t = irgen->GetType(this->GetType());
 }
 FnDecl::FnDecl(Identifier *n, Type *r, List<VarDecl*> *d) : Decl(n) {
     Assert(n != NULL && r!= NULL && d != NULL);
