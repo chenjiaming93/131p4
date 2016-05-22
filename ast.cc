@@ -6,6 +6,7 @@
 #include "ast_type.h"
 #include "ast_decl.h"
 #include "symtable.h"
+#include "irgen.h"
 #include <string.h> // strdup
 #include <stdio.h>  // printf
 
@@ -18,6 +19,12 @@ Node::Node() {
     location = NULL;
     parent = NULL;
 }
+
+SymbolTable *Node::symtab = new SymbolTable();
+IRGenerator *Node::irgen = new IRGenerator();
+
+vector<llvm::BasicBlock*> *Node::breakBB = new vector<llvm::BasicBlock*>();
+vector<llvm::BasicBlock*> *Node::continueBB = new vector<llvm::BasicBlock*>();
 
 /* The Print method is used to print the parse tree nodes.
  * If this node has a location (most nodes do, but some do not), it

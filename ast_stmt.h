@@ -32,7 +32,7 @@ class Program : public Node
      Program(List<Decl*> *declList);
      const char *GetPrintNameForNode() { return "Program"; }
      void PrintChildren(int indentLevel);
-     virtual void Emit();
+     llvm::Value *Emit();
 };
 
 class Stmt : public Node
@@ -52,6 +52,7 @@ class StmtBlock : public Stmt
     StmtBlock(List<VarDecl*> *variableDeclarations, List<Stmt*> *statements);
     const char *GetPrintNameForNode() { return "StmtBlock"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 };
 
 class DeclStmt: public Stmt 
@@ -63,6 +64,7 @@ class DeclStmt: public Stmt
     DeclStmt(Decl *d);
     const char *GetPrintNameForNode() { return "DeclStmt"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
   
@@ -131,6 +133,7 @@ class BreakStmt : public Stmt
   public:
     BreakStmt(yyltype loc) : Stmt(loc) {}
     const char *GetPrintNameForNode() { return "BreakStmt"; }
+    llvm::Value *Emit();
 
 };
 
@@ -139,6 +142,7 @@ class ContinueStmt : public Stmt
   public:
     ContinueStmt(yyltype loc) : Stmt(loc) {}
     const char *GetPrintNameForNode() { return "ContinueStmt"; }
+    llvm::Value *Emit();
 
 };
 
@@ -151,6 +155,7 @@ class ReturnStmt : public Stmt
     ReturnStmt(yyltype loc, Expr *expr = NULL);
     const char *GetPrintNameForNode() { return "ReturnStmt"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
 

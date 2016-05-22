@@ -15,6 +15,9 @@ IntConstant::IntConstant(yyltype loc, int val) : Expr(loc) {
 void IntConstant::PrintChildren(int indentLevel) { 
     printf("%d", value);
 }
+llvm::Value *IntConstant::Emit() {
+    return llvm::ConstantInt::get(irgen->GetIntType(), value);
+}
 
 FloatConstant::FloatConstant(yyltype loc, double val) : Expr(loc) {
     value = val;
@@ -22,12 +25,18 @@ FloatConstant::FloatConstant(yyltype loc, double val) : Expr(loc) {
 void FloatConstant::PrintChildren(int indentLevel) { 
     printf("%g", value);
 }
+llvm::Value *FloatConstant::Emit() {
+    return llvm::ConstantFP::get(irgen->GetFloatType(), value);
+}
 
 BoolConstant::BoolConstant(yyltype loc, bool val) : Expr(loc) {
     value = val;
 }
 void BoolConstant::PrintChildren(int indentLevel) { 
     printf("%s", value ? "true" : "false");
+}
+llvm::Value *BoolConstant::Emit() {
+    return llvm::ConstantInt::get(irgen->GetBoolType(), value);
 }
 
 VarExpr::VarExpr(yyltype loc, Identifier *ident) : Expr(loc) {

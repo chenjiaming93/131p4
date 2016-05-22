@@ -12,37 +12,23 @@
 #include <stdio.h>
 #include <vector>
 #include <map>
-#include <iostream>
-#include "location.h"
+#include "ast.h"
 #include "ast_decl.h"
-#include "errors.h"
+#include "irgen.h"
 
 using namespace std;
 
 class SymbolTable {
 
   public:
-    typedef enum {
-      Program,
-      Function,
-      Loop,
-      Block,
-      Conditional,
-      Switch
-    } scope;
 
     SymbolTable();
-    void Push(scope sp);
+    void Push();
     void Pop();
-    void AddSymbol(string id, Decl *decl);
-    Decl *LookUpCurr(string id);
-    Decl *LookUpScope(string id);
-
-    vector<scope> *scopeStack;
-    vector<map<string, Decl*> > *symbolTable;
+    void AddSymbol(string id, Decl *decl, llvm::Value *val);
+    llvm::Value *LookUpValue(string id);
+    vector<map<string, pair<Decl*, llvm::Value*> > > *symbolTable;
     int currScope;
-    bool returned;
-    FnDecl *lastFun;
 
 };
 

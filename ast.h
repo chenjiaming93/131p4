@@ -40,17 +40,18 @@
 #include <stdlib.h>   // for NULL
 #include "location.h"
 #include <iostream>
+#include <vector>
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
-
 
 using namespace std;
 
 class SymbolTable;
 class MyStack;
 class FnDecl;
+class IRGenerator;
 
 class Node  {
   protected:
@@ -59,7 +60,10 @@ class Node  {
 
   public:
     static SymbolTable *symtab;
-    static IRGenerator* irgen; 
+    static IRGenerator *irgen;
+    static vector<llvm::BasicBlock*> *breakBB;
+    static vector<llvm::BasicBlock*> *continueBB;
+
     Node(yyltype loc);
     Node();
     virtual ~Node() {}

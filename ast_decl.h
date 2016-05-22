@@ -17,6 +17,7 @@
 #include "list.h"
 #include "ast_expr.h"
 #include "llvm/IR/Value.h"
+
 class Type;
 class TypeQualifier;
 class NamedType;
@@ -35,7 +36,7 @@ class Decl : public Node
     Decl(Identifier *name);
     Identifier *GetIdentifier() const { return id; }
     friend ostream& operator<<(ostream& out, Decl *d) { return out << d->id; }
-
+    const char *GetIdName() { return id->GetName(); }
 };
 
 class VarDecl : public Decl 
@@ -50,10 +51,11 @@ class VarDecl : public Decl
     VarDecl(Identifier *name, Type *type, Expr *assignTo = NULL);
     VarDecl(Identifier *name, TypeQualifier *typeq, Expr *assignTo = NULL);
     VarDecl(Identifier *name, Type *type, TypeQualifier *typeq, Expr *assignTo = NULL);
+    llvm::Value *Emit();
     const char *GetPrintNameForNode() { return "VarDecl"; }
-    llvm::Value* Emit();
     void PrintChildren(int indentLevel);
     Type *GetType() const { return type; }
+    
 };
 
 class VarDeclError : public VarDecl
@@ -71,9 +73,8 @@ class FnDecl : public Decl
     TypeQualifier *returnTypeq;
     Stmt *body;
     
-    
   public:
-    llvm::Value* Emit();
+    llvm::Value *Emit();
     FnDecl() : Decl(), formals(NULL), returnType(NULL), returnTypeq(NULL), body(NULL) {}
     FnDecl(Identifier *name, Type *returnType, List<VarDecl*> *formals);
     FnDecl(Identifier *name, Type *returnType, TypeQualifier *returnTypeq, List<VarDecl*> *formals);

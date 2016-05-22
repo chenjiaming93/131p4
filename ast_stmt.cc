@@ -23,13 +23,24 @@ void Program::PrintChildren(int indentLevel) {
     printf("\n");
 }
 
-void Program::Emit() {
+llvm::Value *Program::Emit() {
     // TODO:
     // This is just a reference for you to get started
     //
     // You can use this as a template and create Emit() function
     // for individual node to fill in the module structure and instructions.
     //
+
+    llvm::Module *mod = irgen->GetOrCreateModule("glsl.bc");
+    symtab->Push();
+    for(int i = 0; i < decls->NumElements(); i++) {
+        decls->Nth(i)->Emit();
+    }
+    symtab->Pop();
+    llvm::WriteBitcodeToFile(mod, llvm::outs());
+    return NULL;
+
+    /*
     IRGenerator irgen;
     llvm::Module *mod = irgen.GetOrCreateModule("Name_the_Module.bc");
 
@@ -56,6 +67,7 @@ void Program::Emit() {
 
     // write the BC into standard output
     llvm::WriteBitcodeToFile(mod, llvm::outs());
+    */
 }
 
 StmtBlock::StmtBlock(List<VarDecl*> *d, List<Stmt*> *s) {
@@ -69,6 +81,20 @@ void StmtBlock::PrintChildren(int indentLevel) {
     stmts->PrintAll(indentLevel+1);
 }
 
+llvm::Value *StmtBlock::Emit() {
+    symtab->Push();
+    for(int i = 0; i < decls->NumElements(); i++) {
+        Decl *d = decls->Nth(i);
+        d->Emit();
+    }
+    for(int i = 0; i < stmts->NumElements(); i++) {
+        Stmt *s = stmts->Nth(i);
+        s->Emit();
+    }
+    symtab->Pop();
+    return NULL;
+}
+
 DeclStmt::DeclStmt(Decl *d) {
     Assert(d != NULL);
     (decl=d)->SetParent(this);
@@ -76,6 +102,11 @@ DeclStmt::DeclStmt(Decl *d) {
 
 void DeclStmt::PrintChildren(int indentLevel) {
     decl->Print(indentLevel+1);
+}
+
+llvm::Value *DeclStmt::Emit() {
+    decl->Emit;
+    return NULL;
 }
 
 ConditionalStmt::ConditionalStmt(Expr *t, Stmt *b) { 
@@ -117,6 +148,17 @@ void IfStmt::PrintChildren(int indentLevel) {
     if (elseBody) elseBody->Print(indentLevel+1, "(else) ");
 }
 
+llvm::Value *BreakStmt::Emit() {
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+    llvm::BranchInst::Create(breakBB->back(), bb);
+    return NULL;
+}
+
+llvm::Value* ContinueStmt::Emit() {
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+    llvm::BranchInst::Create(continueBB->back(), bb);
+    return NULL;
+}
 
 ReturnStmt::ReturnStmt(yyltype loc, Expr *e) : Stmt(loc) { 
     expr = e;
@@ -126,6 +168,18 @@ ReturnStmt::ReturnStmt(yyltype loc, Expr *e) : Stmt(loc) {
 void ReturnStmt::PrintChildren(int indentLevel) {
     if ( expr ) 
       expr->Print(indentLevel+1);
+}
+
+llvm::Value *ReturnStmt::Emit() {
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+    llvm::LLVMContext *context = irgen->GetContext(); 
+    if(expr) {
+        llvm::Value *val = expr->Emit();
+        llvm::ReturnInst::Create(*context, val, bb);
+    }
+    else
+        llvm::ReturnInst::Create(*context, bb);
+    return NULL;
 }
 
 SwitchLabel::SwitchLabel(Expr *l, Stmt *s) {
