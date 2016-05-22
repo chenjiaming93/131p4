@@ -52,7 +52,7 @@ llvm::Value* VarDecl::Emit(){
     }
     else//local var
     {
-    	  llvm::BasicBlock* bb = Node::irgen->GetBasicBlock();
+        llvm::BasicBlock* bb = Node::irgen->GetBasicBlock();
         llvm::Value *val =  new llvm::AllocaInst(type,*twine, bb);
         return val;
       
