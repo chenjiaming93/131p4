@@ -46,12 +46,16 @@ llvm::Value* VarDecl::Emit(){
     llvm::Twine*twine=new llvm::Twine(this->id->GetName());
     if (symtab->currScope==1)//Global Var
     {
-    	llvm::GlobalVariable *var = new llvm::GlobalVariable(module,type,false,llvm::GlobalValue::ExternalLinkage,llvm::Constant::getNullValue(type),*twine);
+        llvm::GlobalVariable *var = new llvm::GlobalVariable(module,type,false,llvm::GlobalValue::ExternalLinkage,llvm::Constant::getNullValue(type),*twine);
+        return var;
+      
     }
     else//local var
     {
-    	llvm::BasicBlock* bb = Node::irgen->GetBasicBlock();
+    	  llvm::BasicBlock* bb = Node::irgen->GetBasicBlock();
         llvm::Value *val =  new llvm::AllocaInst(type,*twine, bb);
+        return val;
+      
     }
 }
 FnDecl::FnDecl(Identifier *n, Type *r, List<VarDecl*> *d) : Decl(n) {
