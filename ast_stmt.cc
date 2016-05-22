@@ -84,12 +84,10 @@ void StmtBlock::PrintChildren(int indentLevel) {
 llvm::Value *StmtBlock::Emit() {
     symtab->Push();
     for(int i = 0; i < decls->NumElements(); i++) {
-        Decl *d = decls->Nth(i);
-        d->Emit();
+        decls->Nth(i)->Emit();
     }
     for(int i = 0; i < stmts->NumElements(); i++) {
-        Stmt *s = stmts->Nth(i);
-        s->Emit();
+        stmts->Nth(i)->Emit();
     }
     symtab->Pop();
     return NULL;
@@ -105,7 +103,7 @@ void DeclStmt::PrintChildren(int indentLevel) {
 }
 
 llvm::Value *DeclStmt::Emit() {
-    decl->Emit;
+    decl->Emit();
     return NULL;
 }
 

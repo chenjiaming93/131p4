@@ -65,7 +65,7 @@ llvm::Type *IRGenerator::AstToLLVM(Type *type, llvm::LLVMContext *context) {
    else if(type == Type::boolType)
       ty = llvm::Type::getInt1Ty(*context);
    else if(type == Type::floatType)
-      ty = llvm::Type::getFloat1Ty(*context);
+      ty = llvm::Type::getFloatTy(*context);
 
    return ty;
 }

@@ -48,7 +48,7 @@ llvm::Value *VarDecl::Emit() {
     
     // Global Var
     if (symtab->currScope == 1) {
-        llvm::GlobalVariable *var = new llvm::GlobalVariable(module,type,false,llvm::GlobalValue::ExternalLinkage,llvm::Constant::getNullValue(type),*twine);
+        llvm::GlobalVariable *var = new llvm::GlobalVariable(*module,type,false,llvm::GlobalValue::ExternalLinkage,llvm::Constant::getNullValue(type),*twine);
     }
     //local var
     else {
