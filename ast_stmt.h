@@ -15,6 +15,9 @@
 
 #include "list.h"
 #include "ast.h"
+#include "llvm/Support/CFG.h"
+
+using namespace std;
 
 class Decl;
 class VarDecl;
@@ -40,6 +43,7 @@ class Stmt : public Node
   public:
      Stmt() : Node() {}
      Stmt(yyltype loc) : Node(loc) {}
+     virtual llvm::Value *Emit() { return NULL; };
 };
 
 class StmtBlock : public Stmt 
@@ -77,6 +81,7 @@ class ConditionalStmt : public Stmt
   public:
     ConditionalStmt() : Stmt(), test(NULL), body(NULL) {}
     ConditionalStmt(Expr *testExpr, Stmt *body);
+    llvm::Value *Emit();
 
 };
 
@@ -85,6 +90,7 @@ class LoopStmt : public ConditionalStmt
   public:
     LoopStmt(Expr *testExpr, Stmt *body)
             : ConditionalStmt(testExpr, body) {}
+    llvm::Value *Emit();
 };
 
 class ForStmt : public LoopStmt 
@@ -96,6 +102,7 @@ class ForStmt : public LoopStmt
     ForStmt(Expr *init, Expr *test, Expr *step, Stmt *body);
     const char *GetPrintNameForNode() { return "ForStmt"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
 
@@ -105,6 +112,7 @@ class WhileStmt : public LoopStmt
     WhileStmt(Expr *test, Stmt *body) : LoopStmt(test, body) {}
     const char *GetPrintNameForNode() { return "WhileStmt"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
 
@@ -118,6 +126,7 @@ class IfStmt : public ConditionalStmt
     IfStmt(Expr *test, Stmt *thenBody, Stmt *elseBody);
     const char *GetPrintNameForNode() { return "IfStmt"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
 
@@ -170,6 +179,7 @@ class SwitchLabel : public Stmt
     SwitchLabel(Expr *label, Stmt *stmt);
     SwitchLabel(Stmt *stmt);
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
 
@@ -179,6 +189,8 @@ class Case : public SwitchLabel
     Case() : SwitchLabel() {}
     Case(Expr *label, Stmt *stmt) : SwitchLabel(label, stmt) {}
     const char *GetPrintNameForNode() { return "Case"; }
+    llvm::Value *Emit();
+
 };
 
 class Default : public SwitchLabel
@@ -186,6 +198,7 @@ class Default : public SwitchLabel
   public:
     Default(Stmt *stmt) : SwitchLabel(stmt) {}
     const char *GetPrintNameForNode() { return "Default"; }
+    llvm::Value *Emit();
 };
 
 class SwitchStmt : public Stmt
@@ -200,6 +213,7 @@ class SwitchStmt : public Stmt
     SwitchStmt(Expr *expr, List<Stmt*> *cases, Default *def);
     virtual const char *GetPrintNameForNode() { return "SwitchStmt"; }
     void PrintChildren(int indentLevel);
+    llvm::Value *Emit();
 
 };
 

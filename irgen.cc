@@ -58,7 +58,7 @@ llvm::Type *IRGenerator::GetFloatType() const {
    return ty;
 }
 
-llvm::Type *IRGenerator::AstToLLVM(Type *type, llvm::LLVMContext *context) {
+llvm::Type *IRGenerator::GetType(Type *type) const{
    llvm::Type *ty = NULL;
    if(type == Type::intType)
       ty = llvm::Type::getInt32Ty(*context);

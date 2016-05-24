@@ -16,7 +16,7 @@ void IntConstant::PrintChildren(int indentLevel) {
     printf("%d", value);
 }
 llvm::Value *IntConstant::Emit() {
-    return llvm::ConstantInt::get(irgen->GetIntType(), value);
+    return llvm::ConstantInt::get(irgen->GetIntType(), this->value);
 }
 
 FloatConstant::FloatConstant(yyltype loc, double val) : Expr(loc) {
@@ -26,7 +26,7 @@ void FloatConstant::PrintChildren(int indentLevel) {
     printf("%g", value);
 }
 llvm::Value *FloatConstant::Emit() {
-    return llvm::ConstantFP::get(irgen->GetFloatType(), value);
+    return llvm::ConstantFP::get(irgen->GetFloatType(), this->value);
 }
 
 BoolConstant::BoolConstant(yyltype loc, bool val) : Expr(loc) {
@@ -36,7 +36,7 @@ void BoolConstant::PrintChildren(int indentLevel) {
     printf("%s", value ? "true" : "false");
 }
 llvm::Value *BoolConstant::Emit() {
-    return llvm::ConstantInt::get(irgen->GetBoolType(), value);
+    return llvm::ConstantInt::get(irgen->GetBoolType(), this->value);
 }
 
 VarExpr::VarExpr(yyltype loc, Identifier *ident) : Expr(loc) {
@@ -47,6 +47,34 @@ VarExpr::VarExpr(yyltype loc, Identifier *ident) : Expr(loc) {
 void VarExpr::PrintChildren(int indentLevel) {
     id->Print(indentLevel+1);
 }
+
+llvm::Value *VarExpr::Emit() {
+    llvm::Value *v = symtab->LookUpValue(this->GetIdentifier()->GetName());
+    llvm::Value *value = new llvm::LoadInst(v, this->GetIdentifier()->GetName(), irgen->GetBasicBlock());
+    return value;
+}
+
+llvm::Value *ArithmeticExpr::Emit() {
+    return NULL;
+}
+
+llvm::Value *RelationalExpr::Emit() {
+    return NULL;
+}
+
+llvm::Value *PostfixExpr::Emit() {
+    return NULL;
+}
+
+llvm::Value *FieldAccess::Emit() {
+    return NULL;
+}
+
+llvm::Value *AssignExpr::Emit() {
+    return NULL;
+}
+
+
 
 Operator::Operator(yyltype loc, const char *tok) : Node(loc) {
     Assert(tok != NULL);

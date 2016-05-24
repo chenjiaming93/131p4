@@ -9,31 +9,43 @@
 #include "ast_type.h"
 
 SymbolTable::SymbolTable() {
-  symbolTable = new vector<map<string, pair<Decl*, llvm::Value*> > >();
-  currScope = 0;
+  map<string, llvm::Value*> s;
+  vector<scope> ss;
+  sv = ss;
+  sv.push_back(s);
+  global = false;
 }
 
-void SymbolTable::Push() {
-  map<string, pair<Decl*, llvm::Value*> > scope = map<string, pair<Decl*, llvm::Value*> >();
-  symbolTable->push_back(scope);
-  currScope++;
+void SymbolTable::Push(scope *s) {
+  sv.push_back(*s);
 }
 
 void SymbolTable::Pop() {
-  symbolTable->pop_back();
-  currScope--;
+  sv.pop_back();
 }
 
-void SymbolTable::AddSymbol(string id, Decl *decl, llvm::Value *val) {
-  symbolTable->at(currScope).insert(pair<string, pair<Decl*, llvm::Value*> >(id, pair<Decl*, llvm::Value*>(decl, val)));
+void SymbolTable::AddSymbol(string id, llvm::Value *val) {
+  scope *s = &sv.back();
+  s->insert(pair<string, llvm::Value*>(id,val));
 }
 
 llvm::Value *SymbolTable::LookUpValue(string id) {
-  int cnt = 0;
-  for(int i = currScope; i >= 0; i--) {
-    cnt = symbolTable->at(i).count(id);
-    if(cnt > 0)
-      return symbolTable->at(i).at(id).second;
+  llvm::Value* val = NULL;
+  for(vector<scope>::reverse_iterator it = sv.rbegin(); it != sv.rend(); it++) {
+    scope* s = &(*it);
+    val = LookUpHelper(id, s);
+    if(val != NULL)
+      break;
   }
+  return val;
+}
+
+llvm::Value *SymbolTable::LookUpHelper(string id, scope *s) {
+  if(s->count(id) > 0)
+    return s->at(id);
   return NULL;
+}
+
+scope *SymbolTable::CurrScope() {
+  return &(sv.back());
 }

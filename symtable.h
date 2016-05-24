@@ -18,18 +18,21 @@
 
 using namespace std;
 
+typedef map<string, llvm::Value*> scope;
+
 class SymbolTable {
 
   public:
 
+    vector<scope> sv;
+    bool global;
     SymbolTable();
-    void Push();
+    void Push(scope *s);
     void Pop();
-    void AddSymbol(string id, Decl *decl, llvm::Value *val);
+    void AddSymbol(string id, llvm::Value* val);
     llvm::Value *LookUpValue(string id);
-    vector<map<string, pair<Decl*, llvm::Value*> > > *symbolTable;
-    int currScope;
-
+    llvm::Value *LookUpHelper(string id, scope *s);
+    scope *CurrScope();
 };
 
 #endif

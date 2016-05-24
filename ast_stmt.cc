@@ -31,13 +31,12 @@ llvm::Value *Program::Emit() {
     // for individual node to fill in the module structure and instructions.
     //
 
-    llvm::Module *mod = irgen->GetOrCreateModule("glsl.bc");
-    symtab->Push();
+    llvm::Module *module = irgen->GetOrCreateModule("glsl.bc");
+    symtab->global = true;
     for(int i = 0; i < decls->NumElements(); i++) {
         decls->Nth(i)->Emit();
     }
-    symtab->Pop();
-    llvm::WriteBitcodeToFile(mod, llvm::outs());
+    llvm::WriteBitcodeToFile(module, llvm::outs());
     return NULL;
 
     /*
@@ -70,6 +69,183 @@ llvm::Value *Program::Emit() {
     */
 }
 
+llvm::Value *ForStmt::Emit() {
+    symtab->global = false;
+    scope s;
+    symtab->Push(&s);
+
+    llvm::Function *f = irgen->GetFunction();
+    llvm::LLVMContext *context = irgen->GetContext();
+
+    llvm::BasicBlock *cb = irgen->GetBasicBlock();
+    llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
+    llvm::BasicBlock *sb = llvm::BasicBlock::Create(*context, "step", f);
+    llvm::BasicBlock *db = llvm::BasicBlock::Create(*context, "body", f);
+    llvm::BasicBlock *hb = llvm::BasicBlock::Create(*context, "header", f);
+
+    init->Emit();
+
+    llvm::BranchInst::Create(hb, cb);
+    hb->moveAfter(cb);
+    irgen->SetBasicBlock(hb);
+
+    llvm::Value *testVal = test->Emit();
+    llvm::BranchInst::Create(db, fb, testVal, hb);
+
+    irgen->SetBasicBlock(db);
+    body->Emit();
+    llvm::BranchInst::Create(sb, db);
+
+    sb->moveAfter(db);
+    irgen->SetBasicBlock(sb);
+    step->Emit();
+    llvm::BranchInst::Create(hb, sb);
+    fb->moveAfter(sb);
+    irgen->SetBasicBlock(fb);
+
+    symtab->Pop();
+    return NULL;
+}
+
+llvm::Value *WhileStmt::Emit() {
+    symtab->global = false;
+    scope s;
+    symtab->Push(&s);
+
+    llvm::Function *f = irgen->GetFunction();
+    llvm::LLVMContext *context = irgen->GetContext();
+
+    llvm::BasicBlock *cb = irgen->GetBasicBlock();
+    llvm::BasicBlock *hb = llvm::BasicBlock::Create(*context, "header", f);
+    llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
+    llvm::BasicBlock *db = llvm::BasicBlock::Create(*context, "body", f);
+
+    llvm::BranchInst::Create(hb, cb);
+    hb->moveAfter(cb);
+    irgen->SetBasicBlock(hb);
+
+    llvm::Value *testVal = test->Emit();
+    llvm::BranchInst::Create(db, fb, testVal, hb);
+
+    irgen->SetBasicBlock(db);
+    body->Emit();
+    llvm::BranchInst::Create(hb, db);
+    fb->moveAfter(db);
+    irgen->SetBasicBlock(fb);
+
+    symtab->Pop();
+    return NULL;
+}
+
+llvm::Value *IfStmt::Emit() {
+    symtab->global = false;
+    scope s;
+    symtab->Push(&s);
+
+    llvm::Function *f = irgen->GetFunction();
+    llvm::LLVMContext *context = irgen->GetContext();
+    llvm::Value *testVal = test->Emit();
+
+    llvm::Twine *ft = new llvm::Twine();
+    llvm::Twine *et = new llvm::Twine();
+    llvm::Twine *tt = new llvm::Twine();
+
+    llvm::BasicBlock *cb = irgen->GetBasicBlock();
+    llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
+    llvm::BasicBlock *eb = NULL;
+    if (elseBody)
+        eb = llvm::BasicBlock::Create(*context, "else", f);
+    llvm::BasicBlock *tb = llvm::BasicBlock::Create(*context, "then", f);
+
+    llvm::BranchInst::Create(tb, elseBody ? eb:fb, testVal, cb);
+
+    irgen->SetBasicBlock(tb);
+    body->Emit();
+    eb->moveAfter(tb);
+
+    if(tb->getTerminator() == NULL)
+        llvm::BranchInst::Create(fb, tb);
+
+    irgen->SetBasicBlock(eb);
+    elseBody->Emit();
+    fb->moveAfter(eb);
+
+    if (eb != NULL && eb->getTerminator() == NULL)
+        llvm::BranchInst::Create(fb, eb);
+
+    if(pred_begin(fb) == pred_end(fb))
+        new llvm::UnreachableInst(*context, fb);
+    else
+        irgen->SetBasicBlock(fb);
+
+    symtab->Pop();
+    return NULL;
+}
+
+llvm::Value *SwitchStmt::Emit() {
+    return NULL;
+}
+
+llvm::Value *SwitchLabel::Emit() { 
+    return NULL; 
+} 
+
+
+llvm::Value *StmtBlock::Emit() {
+    llvm::Value *v = NULL;
+    for(int i = 0; i < decls->NumElements(); i++) {
+        decls->Nth(i)->Emit();
+    }
+    for(int i = 0; i < stmts->NumElements(); i++) {
+        stmts->Nth(i)->Emit();
+    }
+    return NULL;
+}
+
+llvm::Value *DeclStmt::Emit() {
+    llvm::Value* val = decl->Emit();
+    return val;
+}
+
+llvm::Value *BreakStmt::Emit() {
+    llvm::BasicBlock *cb = irgen->GetBasicBlock();
+    llvm::LLVMContext *context = irgen->GetContext();
+    return NULL;
+}
+
+llvm::Value *ContinueStmt::Emit() {
+    return NULL;
+}
+
+llvm::Value *ConditionalStmt::Emit() {
+    return NULL;
+}
+ 
+llvm::Value *LoopStmt::Emit() {
+    return NULL;
+}
+
+llvm::Value *Default::Emit() {
+    llvm::Function *f = irgen->GetFunction();
+    llvm::LLVMContext *context = irgen->GetContext();
+    stmt->Emit();
+    return NULL;
+}
+
+llvm::Value *Case::Emit() {
+    llvm::Function *f = irgen->GetFunction();
+    llvm::LLVMContext *context = irgen->GetContext();
+    stmt->Emit();
+    return NULL;
+}
+
+llvm::Value *ReturnStmt::Emit() {
+    llvm::BasicBlock *cb = irgen->GetBasicBlock();
+    llvm::LLVMContext *context = irgen->GetContext(); 
+    llvm::Value *val = expr->Emit();
+    return llvm::ReturnInst::Create(*context, val, cb);
+}
+
 StmtBlock::StmtBlock(List<VarDecl*> *d, List<Stmt*> *s) {
     Assert(d != NULL && s != NULL);
     (decls=d)->SetParentAll(this);
@@ -81,18 +257,6 @@ void StmtBlock::PrintChildren(int indentLevel) {
     stmts->PrintAll(indentLevel+1);
 }
 
-llvm::Value *StmtBlock::Emit() {
-    symtab->Push();
-    for(int i = 0; i < decls->NumElements(); i++) {
-        decls->Nth(i)->Emit();
-    }
-    for(int i = 0; i < stmts->NumElements(); i++) {
-        stmts->Nth(i)->Emit();
-    }
-    symtab->Pop();
-    return NULL;
-}
-
 DeclStmt::DeclStmt(Decl *d) {
     Assert(d != NULL);
     (decl=d)->SetParent(this);
@@ -100,11 +264,6 @@ DeclStmt::DeclStmt(Decl *d) {
 
 void DeclStmt::PrintChildren(int indentLevel) {
     decl->Print(indentLevel+1);
-}
-
-llvm::Value *DeclStmt::Emit() {
-    decl->Emit();
-    return NULL;
 }
 
 ConditionalStmt::ConditionalStmt(Expr *t, Stmt *b) { 
@@ -146,18 +305,6 @@ void IfStmt::PrintChildren(int indentLevel) {
     if (elseBody) elseBody->Print(indentLevel+1, "(else) ");
 }
 
-llvm::Value *BreakStmt::Emit() {
-    llvm::BasicBlock *bb = irgen->GetBasicBlock();
-    llvm::BranchInst::Create(breakBB->back(), bb);
-    return NULL;
-}
-
-llvm::Value* ContinueStmt::Emit() {
-    llvm::BasicBlock *bb = irgen->GetBasicBlock();
-    llvm::BranchInst::Create(continueBB->back(), bb);
-    return NULL;
-}
-
 ReturnStmt::ReturnStmt(yyltype loc, Expr *e) : Stmt(loc) { 
     expr = e;
     if (e != NULL) expr->SetParent(this);
@@ -166,18 +313,6 @@ ReturnStmt::ReturnStmt(yyltype loc, Expr *e) : Stmt(loc) {
 void ReturnStmt::PrintChildren(int indentLevel) {
     if ( expr ) 
       expr->Print(indentLevel+1);
-}
-
-llvm::Value *ReturnStmt::Emit() {
-    llvm::BasicBlock *bb = irgen->GetBasicBlock();
-    llvm::LLVMContext *context = irgen->GetContext(); 
-    if(expr) {
-        llvm::Value *val = expr->Emit();
-        llvm::ReturnInst::Create(*context, val, bb);
-    }
-    else
-        llvm::ReturnInst::Create(*context, bb);
-    return NULL;
 }
 
 SwitchLabel::SwitchLabel(Expr *l, Stmt *s) {
@@ -210,4 +345,5 @@ void SwitchStmt::PrintChildren(int indentLevel) {
     if (cases) cases->PrintAll(indentLevel+1);
     if (def) def->Print(indentLevel+1);
 }
+
 

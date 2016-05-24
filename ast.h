@@ -61,8 +61,6 @@ class Node  {
   public:
     static SymbolTable *symtab;
     static IRGenerator *irgen;
-    static vector<llvm::BasicBlock*> *breakBB;
-    static vector<llvm::BasicBlock*> *continueBB;
 
     Node(yyltype loc);
     Node();
