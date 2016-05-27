@@ -1,14 +1,13 @@
-float v;
-int a;
+vec2 v;
 
-float fortest()
+float fortest(int a)
 {
   int i;
   float sum;
 
-  sum = v;
+  sum = v.x;
   for ( i = 0; i < a; i += 1 )
-    sum *= 2.0;
+    sum *= v.y;
 
   return sum;
 }

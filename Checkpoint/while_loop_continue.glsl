@@ -8,7 +8,13 @@ int whiletest()
   i = 0;
   sum = 0;
   while ( i < b ) {
-    sum+= i;
+    sum = sum + i;
+    if ( i > 50 ) {
+      i = 1;
+      continue;
+    }
+    if ( sum > 1024 )
+      break;
     i = i + 1;
   }
   return sum;
