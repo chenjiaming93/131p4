@@ -57,10 +57,10 @@ class Node  {
   protected:
     yyltype *location;
     Node *parent;
-
-  public:
     static SymbolTable *symtab;
     static IRGenerator *irgen;
+
+  public:
 
     Node(yyltype loc);
     Node();
@@ -77,7 +77,7 @@ class Node  {
     void Print(int indentLevel, const char *label = NULL); 
     virtual void PrintChildren(int indentLevel)  {}
 
-    virtual llvm::Value* Emit() {return NULL;}
+    virtual llvm::Value* Emit() { return NULL; }
 };
    
 

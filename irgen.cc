@@ -66,6 +66,8 @@ llvm::Type *IRGenerator::GetType(Type *type) const{
       ty = llvm::Type::getInt1Ty(*context);
    else if(type == Type::floatType)
       ty = llvm::Type::getFloatTy(*context);
+    else if (type == Type::vec2Type)
+      ty = llvm::VectorType::get(llvm::Type::getFloatTy(*context), 2);
 
    return ty;
 }

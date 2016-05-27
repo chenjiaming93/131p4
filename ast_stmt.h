@@ -15,7 +15,6 @@
 
 #include "list.h"
 #include "ast.h"
-#include "llvm/Support/CFG.h"
 
 using namespace std;
 
@@ -179,7 +178,6 @@ class SwitchLabel : public Stmt
     SwitchLabel(Expr *label, Stmt *stmt);
     SwitchLabel(Stmt *stmt);
     void PrintChildren(int indentLevel);
-    llvm::Value *Emit();
 
 };
 
@@ -190,6 +188,7 @@ class Case : public SwitchLabel
     Case(Expr *label, Stmt *stmt) : SwitchLabel(label, stmt) {}
     const char *GetPrintNameForNode() { return "Case"; }
     llvm::Value *Emit();
+    Expr* GetLabel() { return label; }
 
 };
 

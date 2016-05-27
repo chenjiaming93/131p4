@@ -5,15 +5,16 @@
 
 #include "symtable.h"
 #include "ast.h"
-#include "ast_decl.h"
 #include "ast_type.h"
+#include "ast_decl.h"
 
 SymbolTable::SymbolTable() {
   map<string, llvm::Value*> s;
-  vector<scope> ss;
-  sv = ss;
+  vector<scope> vec;
+  sv = vec;
   sv.push_back(s);
   global = false;
+  llvm::BasicBlock *breakBlock = NULL;
 }
 
 void SymbolTable::Push(scope *s) {
@@ -44,8 +45,4 @@ llvm::Value *SymbolTable::LookUpHelper(string id, scope *s) {
   if(s->count(id) > 0)
     return s->at(id);
   return NULL;
-}
-
-scope *SymbolTable::CurrScope() {
-  return &(sv.back());
 }
