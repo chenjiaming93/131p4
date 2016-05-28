@@ -3,10 +3,6 @@ float a;
 float iftest()
 {
   float f;
-  if ( a > 2.0 && a < 0.5 ) {
-    f = 2.0;
-  } else {
-    f = 1.0;
-  }
+  f = 4 > 3 ? 1.0 : 4.0;
   return f;
 }
