@@ -261,8 +261,14 @@ llvm::Value *Case::Emit() {
 llvm::Value *ReturnStmt::Emit() {
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
     llvm::LLVMContext *context = irgen->GetContext(); 
-    llvm::Value *val = expr->Emit();
-    return llvm::ReturnInst::Create(*context, val, bb);
+    if (expr != NULL){
+	llvm::Value *val = expr->Emit();
+    	return llvm::ReturnInst::Create(*context, val, bb);
+    }
+    else
+    {
+    	return llvm::ReturnInst::Create(*context,bb);
+    }
 }
 
 StmtBlock::StmtBlock(List<VarDecl*> *d, List<Stmt*> *s) {
