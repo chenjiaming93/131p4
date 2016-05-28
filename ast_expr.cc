@@ -152,8 +152,10 @@ llvm::Value *RelationalExpr::Emit() {
     }
 
     if((lhs->getType() == irgen->GetType(Type::intType)) && (rhs->getType() == irgen->GetType(Type::intType))) {
-        if(op->IsOp(">"))
+        if(op->IsOp(">")){
             pred = llvm::CmpInst::ICMP_SGT;
+	    std::cerr<<"It is here"<<endl;
+	}
         else if(op->IsOp("<"))
             pred = llvm::CmpInst::ICMP_SLT;
         else if(op->IsOp(">="))
@@ -173,10 +175,10 @@ llvm::Value *RelationalExpr::Emit() {
 
 llvm::Value *AssignExpr::Emit() {
     Operator *op = this->op;
+    llvm::Value *rv = this->right->Emit();
     llvm::Value *lv = this->left->Emit();
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(lv);
-    llvm::Value *loc = ld->getPointerOperand();
-    llvm::Value *rv = this->right->Emit();
+     llvm::Value *loc = ld->getPointerOperand();
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
 
     if(op->IsOp("=")) {
@@ -287,6 +289,7 @@ bool Operator::IsOp(const char *op) const {
     return strcmp(tokenString, op) == 0;
 }
 
+
 CompoundExpr::CompoundExpr(Expr *l, Operator *o, Expr *r) 
   : Expr(Join(l->GetLocation(), r->GetLocation())) {
     Assert(l != NULL && o != NULL && r != NULL);
@@ -309,13 +312,37 @@ CompoundExpr::CompoundExpr(Expr *l, Operator *o)
     (left=l)->SetParent(this);
     (op=o)->SetParent(this);
 }
+llvm::Value *EqualityExpr::Emit() {
+    Operator *op = this->op;
+    llvm::Value *lhs = left->Emit();
+    llvm::Value *rhs = right->Emit();
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+    llvm::CmpInst::Predicate pred;
+    if((lhs->getType() == irgen->GetType(Type::floatType)) && (rhs->getType() == irgen->GetType(Type::floatType))) {
+        if(op->IsOp("=="))
+            pred = llvm::CmpInst::FCMP_OEQ;
+        if(op->IsOp("!="))
+            pred = llvm::CmpInst::FCMP_ONE;
+        llvm::Value *v = llvm::CmpInst::Create(llvm::CmpInst::FCmp, pred, lhs, rhs, "", bb);
+        return v;
+    }    
 
+    if((lhs->getType() == irgen->GetType(Type::intType)) && (rhs->getType() == irgen->GetType(Type::intType))) {
+	if(op->IsOp("=="))
+            pred = llvm::CmpInst::ICMP_EQ;
+        else if(op->IsOp("!="))
+            pred = llvm::CmpInst::ICMP_NE;
+	llvm::Value *v = llvm::CmpInst::Create(llvm::CmpInst::ICmp, pred, lhs, rhs, "", bb);
+        return v;
+    }
+    return NULL;
+}
 void CompoundExpr::PrintChildren(int indentLevel) {
    if (left) left->Print(indentLevel+1);
    op->Print(indentLevel+1);
    if (right) right->Print(indentLevel+1);
 }
-   
+  
 ConditionalExpr::ConditionalExpr(Expr *c, Expr *t, Expr *f)
   : Expr(Join(c->GetLocation(), f->GetLocation())) {
     Assert(c != NULL && t != NULL && f != NULL);
@@ -323,6 +350,22 @@ ConditionalExpr::ConditionalExpr(Expr *c, Expr *t, Expr *f)
     (trueExpr=t)->SetParent(this);
     (falseExpr=f)->SetParent(this);
 }
+llvm::Value *LogicalExpr::Emit() {
+    Operator *op = this->op;
+    llvm::Value *lhs = left->Emit();
+    llvm::Value *rhs = right->Emit();
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+    if(op->IsOp("&&")){
+    	llvm::Value *v = llvm::BinaryOperator::CreateAnd(lhs, rhs, "LogicalAnd", bb);
+    	return v;
+    }
+    if(op->IsOp("||")) 
+    {
+    	llvm::Value *v = llvm::BinaryOperator::CreateOr(lhs, rhs, "LogicalOr", bb);
+    	return v;
+    }
+    return NULL;
+}   
 
 void ConditionalExpr::PrintChildren(int indentLevel) {
     cond->Print(indentLevel+1, "(cond) ");
