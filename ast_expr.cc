@@ -152,10 +152,8 @@ llvm::Value *RelationalExpr::Emit() {
     }
 
     if((lhs->getType() == irgen->GetType(Type::intType)) && (rhs->getType() == irgen->GetType(Type::intType))) {
-        if(op->IsOp(">")){
+        if(op->IsOp(">"))
             pred = llvm::CmpInst::ICMP_SGT;
-	    std::cerr<<"It is here"<<endl;
-	}
         else if(op->IsOp("<"))
             pred = llvm::CmpInst::ICMP_SLT;
         else if(op->IsOp(">="))
@@ -349,6 +347,13 @@ ConditionalExpr::ConditionalExpr(Expr *c, Expr *t, Expr *f)
     (cond=c)->SetParent(this);
     (trueExpr=t)->SetParent(this);
     (falseExpr=f)->SetParent(this);
+}
+llvm::Value *ConditionalExpr::Emit(){    
+    llvm::Value *testval=this->cond->Emit();
+    llvm::Value *tval=this->trueExpr->Emit();
+    llvm::Value *fval=this->falseExpr->Emit();
+    llvm::Value*result=llvm::SelectInst::Create(testval,tval,fval,"",irgen->GetBasicBlock());
+    return result;    
 }
 llvm::Value *LogicalExpr::Emit() {
     Operator *op = this->op;
