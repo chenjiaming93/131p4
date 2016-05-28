@@ -15,6 +15,7 @@ SymbolTable::SymbolTable() {
   sv.push_back(s);
   global = false;
   llvm::BasicBlock *breakBlock = NULL;
+  llvm::BasicBlock *continueBlock = NULL;
 }
 
 void SymbolTable::Push(scope *s) {

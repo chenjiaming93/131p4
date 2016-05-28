@@ -89,7 +89,8 @@ class ArrayType : public Type
     const char *GetPrintNameForNode() { return "ArrayType"; }
     void PrintChildren(int indentLevel);
     void PrintToStream(ostream& out) { out << elemType << "[]"; }
-    Type *GetElemType() {return elemType;}
+    Type *GetElemType() { return elemType; }
+    int GetElemCount() { return elemCount; }
 };
 
  

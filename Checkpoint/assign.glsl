@@ -4,7 +4,9 @@ int main(int f)
 {
    int y;
    int z;
+
    y = z = x + f;
-   return z;
+
+   return y + z;
 }
 
