@@ -198,7 +198,7 @@ llvm::Value *AssignExpr::Emit() {
     llvm::Value *rv = this->right->Emit();
     if( llvm::StoreInst* si = dynamic_cast<llvm::StoreInst*>(rv) ) {
    	 rv = si->getValueOperand();
-    }
+ 	 }
     llvm::Value *lv = this->left->Emit();
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(lv);
     llvm::Value *loc = ld->getPointerOperand();
@@ -211,7 +211,7 @@ llvm::Value *AssignExpr::Emit() {
 	if (l)
 	{
 		llvm::Value* la=l->EmitAddress();
-		loc=new llvm::LoadInst(la,"",bb);
+		
 		if (rv->getType() == irgen->GetType(Type::floatType)){
 			swiz=l->GetField()->GetName();
 			llvm::Constant *idx;
@@ -225,15 +225,15 @@ llvm::Value *AssignExpr::Emit() {
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
 					else if(swiz[i] == 'w')
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				loc=new llvm::LoadInst(la,"",bb);
 				store=llvm::InsertElementInst::Create(loc,rv,idx,"",bb);
 				llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
-			}
-		
+			}		
 		}
 		else{	
 			if (!r){
 				//
-					//std::cerr<<"Assign vec to FA"<<endl;
+					
 				swiz=l->GetField()->GetName();
 				llvm::Constant *idx;
 				for(int i=0;i<strlen(swiz); i++) {
@@ -245,6 +245,7 @@ llvm::Value *AssignExpr::Emit() {
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
 					else if(swiz[i] == 'w')
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					loc=new llvm::LoadInst(la,"",bb);
 					llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
 					llvm::Value *extract=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
 					store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
@@ -275,6 +276,7 @@ llvm::Value *AssignExpr::Emit() {
 						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
 					else if(rswiz[i] == 'w')
 						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					loc=new llvm::LoadInst(la,"",bb);
 					llvm::Value *extract=llvm::ExtractElementInst::Create(ra,ridx,"",bb);
 					store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
 					llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
