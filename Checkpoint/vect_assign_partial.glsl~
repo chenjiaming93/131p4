@@ -1,0 +1,15 @@
+vec2 a;
+
+float assignvec(float f) 
+{
+   float t;
+   vec4 v4;
+
+   t = f + 0.5;
+
+   v4.yx = a;
+   v4.w = t;
+   v4.z = t;
+
+   return v4.x;
+} 

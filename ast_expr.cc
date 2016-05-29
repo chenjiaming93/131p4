@@ -196,6 +196,9 @@ llvm::Value *AssignExpr::Emit() {
     Operator *op = this->op;
     llvm::Value *store;
     llvm::Value *rv = this->right->Emit();
+    if( llvm::StoreInst* si = dynamic_cast<llvm::StoreInst*>(rv) ) {
+   	 rv = si->getValueOperand();
+    }
     llvm::Value *lv = this->left->Emit();
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(lv);
     llvm::Value *loc = ld->getPointerOperand();
@@ -208,30 +211,31 @@ llvm::Value *AssignExpr::Emit() {
 	if (l)
 	{
 		llvm::Value* la=l->EmitAddress();
+		loc=new llvm::LoadInst(la,"",bb);
 		if (rv->getType() == irgen->GetType(Type::floatType)){
-			//std::cerr<<"Assign vec to FA"<<endl;
 			swiz=l->GetField()->GetName();
 			llvm::Constant *idx;
+				//std::cerr<<"Assign float to FA"<<endl;
 			for(int i=0;i<strlen(swiz); i++) {
 				if(swiz[i] == 'x')
 					idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
-				else if(swiz[i] == 'y')
-					idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
-				else if(swiz[i] == 'z')
-					idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
-				else if(swiz[i] == 'w')
-					idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
-				llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
-				llvm::Value *extract=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
-				store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
+					else if(swiz[i] == 'y')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+					else if(swiz[i] == 'z')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+					else if(swiz[i] == 'w')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				store=llvm::InsertElementInst::Create(loc,rv,idx,"",bb);
+				llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
 			}
 		
 		}
 		else{	
 			if (!r){
+				//
+					//std::cerr<<"Assign vec to FA"<<endl;
 				swiz=l->GetField()->GetName();
 				llvm::Constant *idx;
-				//std::cerr<<"Assign float to FA"<<endl;
 				for(int i=0;i<strlen(swiz); i++) {
 					if(swiz[i] == 'x')
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
@@ -241,7 +245,10 @@ llvm::Value *AssignExpr::Emit() {
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
 					else if(swiz[i] == 'w')
 						idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
-					store=llvm::InsertElementInst::Create(loc,rv,idx,"",bb);
+					llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+					llvm::Value *extract=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
+					store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
+					llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
 				}
 			}
 			else{
@@ -270,10 +277,12 @@ llvm::Value *AssignExpr::Emit() {
 						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
 					llvm::Value *extract=llvm::ExtractElementInst::Create(ra,ridx,"",bb);
 					store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
+					llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+
 				}			
 			}		
 		}
-	llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+		
 	}	
      	else
 	{
