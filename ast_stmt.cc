@@ -55,8 +55,12 @@ llvm::Value *ForStmt::Emit() {
 
     llvm::Value *testVal = test->Emit();
     llvm::BranchInst::Create(db, fb, testVal, hb);
-
     irgen->SetBasicBlock(db);
+
+    // Break in the for-loop
+    symtab->breakBlock = fb;
+    symtab->continueBlock = sb;
+
     body->Emit();
     llvm::BranchInst::Create(sb, db);
 
@@ -65,7 +69,11 @@ llvm::Value *ForStmt::Emit() {
     step->Emit();
     llvm::BranchInst::Create(hb, sb);
     fb->moveAfter(sb);
-    irgen->SetBasicBlock(fb);
+
+    if(pred_begin(fb) == pred_end(fb))
+        new llvm::UnreachableInst(*context, fb);
+    else
+        irgen->SetBasicBlock(fb);
 
     symtab->Pop();
     return NULL;
@@ -90,12 +98,20 @@ llvm::Value *WhileStmt::Emit() {
 
     llvm::Value *testVal = test->Emit();
     llvm::BranchInst::Create(db, fb, testVal, hb);
-
     irgen->SetBasicBlock(db);
+
+    // Break in the while-loop
+    symtab->breakBlock = fb; 
+    symtab->continueBlock = hb;
+
     body->Emit();
     llvm::BranchInst::Create(hb, db);
     fb->moveAfter(db);
-    irgen->SetBasicBlock(fb);
+
+    if( pred_begin(fb) == pred_end(fb))
+        new llvm::UnreachableInst(*context, fb);
+    else
+        irgen->SetBasicBlock(fb); 
 
     symtab->Pop();
     return NULL;
@@ -149,10 +165,10 @@ llvm::Value *SwitchStmt::Emit() {
 
     llvm::Function *f = irgen->GetFunction();
     llvm::LLVMContext *context = irgen->GetContext();
-
     llvm::Value *e = expr->Emit();
 
     llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
+    // Break in the switch
     symtab->breakBlock = fb;
 
     llvm::BasicBlock *dflt = llvm::BasicBlock::Create(*context, "default", f);
@@ -228,11 +244,13 @@ llvm::Value *DeclStmt::Emit() {
 llvm::Value *BreakStmt::Emit() {
     llvm::BasicBlock *cb = irgen->GetBasicBlock();
     llvm::BranchInst::Create(symtab->breakBlock , cb);
-    llvm::LLVMContext *context = irgen->GetContext();
     return NULL;
 }
 
 llvm::Value *ContinueStmt::Emit() {
+    irgen->GetOrCreateModule("glsl.bc")->dump();
+    llvm::BasicBlock *cb = irgen->GetBasicBlock();
+    llvm::BranchInst::Create(symtab->continueBlock, cb); 
     return NULL;
 }
 
@@ -261,12 +279,11 @@ llvm::Value *Case::Emit() {
 llvm::Value *ReturnStmt::Emit() {
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
     llvm::LLVMContext *context = irgen->GetContext();
-    if (expr != NULL){
-	llvm::Value *val = expr->Emit();
+    if (expr != NULL) {
+        llvm::Value *val = expr->Emit();
     	llvm::ReturnInst::Create(*context, val, bb);
     }
-    else
-    {
+    else {
     	llvm::ReturnInst::Create(*context,bb);
     }
     return NULL;

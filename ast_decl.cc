@@ -126,6 +126,7 @@ llvm::Value* FnDecl::Emit() {
     
     body->Emit();
     symtab->Pop();
+    symtab->AddSymbol(this->GetIdentifier()->GetName(), fun);
     return fun;
 }
 

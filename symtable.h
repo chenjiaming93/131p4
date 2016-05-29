@@ -31,6 +31,7 @@ class SymbolTable {
     SymbolTable();
     bool global;
     llvm::BasicBlock *breakBlock;
+    llvm::BasicBlock *continueBlock;
 
     void Push(scope *s);
     void Pop();

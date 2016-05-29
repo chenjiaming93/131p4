@@ -4,6 +4,7 @@
  */
 
 #include <string.h>
+#include <vector>
 #include "ast_expr.h"
 #include "ast_type.h"
 #include "ast_decl.h"
@@ -16,6 +17,7 @@ void IntConstant::PrintChildren(int indentLevel) {
     printf("%d", value);
 }
 llvm::Value *IntConstant::Emit() {
+    //std::cerr<<"Int Const"<<endl;
     return llvm::ConstantInt::get(irgen->GetIntType(), value);
 }
 
@@ -49,6 +51,7 @@ void VarExpr::PrintChildren(int indentLevel) {
 }
 
 llvm::Value *VarExpr::Emit() {
+    //std::cerr<<"Var Expr Done"<<endl;
     llvm::Value *v = symtab->LookUpValue(GetIdentifier()->GetName());
     llvm::Twine *twine = new llvm::Twine(this->id->GetName());
     llvm::Value *in = new llvm::LoadInst(v, *twine, irgen->GetBasicBlock());
@@ -57,7 +60,7 @@ llvm::Value *VarExpr::Emit() {
 
 llvm::Value *ArithmeticExpr::Emit() {
     Operator *op = this->op;
-
+    //std::cerr<<"Entering Arithmetic Expr"<<endl;
     if(this->left == NULL && this->right != NULL) {
         llvm::Value *rv = this->right->Emit();
         llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(rv);
@@ -84,8 +87,9 @@ llvm::Value *ArithmeticExpr::Emit() {
         llvm::Value *lhs = this->left->Emit();
 
         if(op->IsOp("+")) {
-            llvm::Value *sum = llvm::BinaryOperator::CreateAdd(lhs, rhs, "", bb);
-            return sum;
+            //std::cerr<<"Error is here"<<endl;
+	    llvm::Value *result = llvm::BinaryOperator::CreateAdd(lhs, rhs, "", bb);
+            return result;
         }
         else if(op->IsOp("*")) {
             llvm::Value *vec;
@@ -122,6 +126,16 @@ llvm::Value *ArithmeticExpr::Emit() {
                 return v;
             }
         }
+	else if (op->IsOp("-"))
+	{
+	    llvm::Value *result = llvm::BinaryOperator::CreateSub(lhs, rhs, "", bb);
+	    return result;
+	}
+	else if (op->IsOp("/"))
+	{
+	    llvm::Value *result = llvm::BinaryOperator::CreateSDiv(lhs, rhs, "", bb);
+	    return result;
+	}
     }
     return NULL;
 }
@@ -176,51 +190,52 @@ llvm::Value *AssignExpr::Emit() {
     llvm::Value *rv = this->right->Emit();
     llvm::Value *lv = this->left->Emit();
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(lv);
-     llvm::Value *loc = ld->getPointerOperand();
+    llvm::Value *loc = ld->getPointerOperand();
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
 
     if(op->IsOp("=")) {
+	//std::cerr<<"Assign!"<<endl;
         llvm::Value* in = new llvm::StoreInst(rv, loc, bb);
     }
 
     else if((lv->getType() == irgen->GetType(Type::floatType)) && (rv->getType() == irgen->GetType(Type::floatType))) {
         if(op->IsOp("+=")) {
-            llvm::Value *add = llvm::BinaryOperator::CreateFAdd(lv, rv, "plusequal", bb);
+            llvm::Value *add = llvm::BinaryOperator::CreateFAdd(lv, rv, "PlusEqual", bb);
             llvm::Value *in = new llvm::StoreInst(add, loc, bb);
-        }
+	}
         else if(op->IsOp("-=")) {
-            llvm::Value *sub = llvm::BinaryOperator::CreateFSub(lv, rv, "minusequal", bb);
+            llvm::Value *sub = llvm::BinaryOperator::CreateFSub(lv, rv, "MinusEqual", bb);
             llvm::Value *in = new llvm::StoreInst(sub, loc, bb);
-        }
+	}
         else if(op->IsOp("*=")) {
-            llvm::Value *mul = llvm::BinaryOperator::CreateFMul(lv, rv, "mulequal", bb);
+            llvm::Value *mul = llvm::BinaryOperator::CreateFMul(lv, rv, "MulEqual", bb);
             llvm::Value *in = new llvm::StoreInst(mul, loc, bb);
         }
         else if(op->IsOp("/=")) {
-            llvm::Value *div = llvm::BinaryOperator::CreateFDiv(lv, rv, "divequal", bb);
+            llvm::Value *div = llvm::BinaryOperator::CreateFDiv(lv, rv, "DivEqual", bb);
             llvm::Value *in = new llvm::StoreInst(div, loc, bb);
         }
     }
 
     else if((lv->getType() == irgen->GetType(Type::intType)) && (rv->getType() == irgen->GetType(Type::intType))) {
         if(op->IsOp("+=")) {
-            llvm::Value *add = llvm::BinaryOperator::CreateAdd(lv, rv, "plusequal", bb);
+            llvm::Value *add = llvm::BinaryOperator::CreateAdd(lv, rv, "PlusEqual", bb);
             llvm::Value *in = new llvm::StoreInst(add, loc, bb);
-        }
+	}
         else if(op->IsOp("-=")) {
-            llvm::Value *sub = llvm::BinaryOperator::CreateSub(lv, rv, "minusequal", bb);
+            llvm::Value *sub = llvm::BinaryOperator::CreateSub(lv, rv, "MinusEqual", bb);
             llvm::Value *in = new llvm::StoreInst(sub, loc, bb);
         }
         else if(op->IsOp("*=")) {
-            llvm::Value *mul = llvm::BinaryOperator::CreateMul(lv, rv, "mulequal", bb);
+            llvm::Value *mul = llvm::BinaryOperator::CreateMul(lv, rv, "MulEqual", bb);
             llvm::Value *in = new llvm::StoreInst(mul, loc, bb);
         }
         else if(op->IsOp("/=")) {
-            llvm::Value *div = llvm::BinaryOperator::CreateSDiv(lv, rv, "divequal", bb);
+            llvm::Value *div = llvm::BinaryOperator::CreateSDiv(lv, rv, "DivEqual", bb);
             llvm::Value *in = new llvm::StoreInst(div, loc, bb);
         }
     }
-    return ld;
+    return rv;
 }
 
 llvm::Value *PostfixExpr::Emit() {
@@ -260,16 +275,32 @@ llvm::Value *FieldAccess::Emit() {
     if(this->base != NULL) {
         llvm::Value *val = base->Emit();
         llvm::BasicBlock *bb = irgen->GetBasicBlock();
-        llvm::Value *idx;
-        string s = "x";
+        vector<llvm::Constant*> swizzles;
 
-        if(this->field->GetName() == s)
-            idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
-        else
-            idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+        if(this->field != NULL) {
+            llvm::Constant *idx;
+            char *c = this->field->GetName();
+            for(char* i = c; *i; i++) {
+                if(*i == 'x')
+                    idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                else if(*i == 'y')
+                    idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                else if(*i == 'z')
+                    idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                else if(*i == 'w')
+                    idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                else
+                    idx = llvm::ConstantInt::get(irgen->GetIntType(), 100);
+                swizzles.push_back(idx);
+            }
+            if(strlen(c) < 2)
+                return llvm::ExtractElementInst::Create(val, idx, "", bb);
 
-        llvm::Value *v = llvm::ExtractElementInst::Create(val, idx, "", bb);
-        return v;
+            llvm::ArrayRef<llvm::Constant*> swizzleArrayRef(swizzles);
+            llvm::Constant *m = llvm::ConstantVector::get(swizzleArrayRef);
+            llvm::Value *v = new llvm::ShuffleVectorInst(val, val, m, "", bb);
+            return v;
+        }
     }
     return NULL;
 }
@@ -286,7 +317,6 @@ void Operator::PrintChildren(int indentLevel) {
 bool Operator::IsOp(const char *op) const {
     return strcmp(tokenString, op) == 0;
 }
-
 
 CompoundExpr::CompoundExpr(Expr *l, Operator *o, Expr *r) 
   : Expr(Join(l->GetLocation(), r->GetLocation())) {
@@ -310,12 +340,14 @@ CompoundExpr::CompoundExpr(Expr *l, Operator *o)
     (left=l)->SetParent(this);
     (op=o)->SetParent(this);
 }
+
 llvm::Value *EqualityExpr::Emit() {
     Operator *op = this->op;
     llvm::Value *lhs = left->Emit();
     llvm::Value *rhs = right->Emit();
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
     llvm::CmpInst::Predicate pred;
+
     if((lhs->getType() == irgen->GetType(Type::floatType)) && (rhs->getType() == irgen->GetType(Type::floatType))) {
         if(op->IsOp("=="))
             pred = llvm::CmpInst::FCMP_OEQ;
@@ -326,15 +358,16 @@ llvm::Value *EqualityExpr::Emit() {
     }    
 
     if((lhs->getType() == irgen->GetType(Type::intType)) && (rhs->getType() == irgen->GetType(Type::intType))) {
-	if(op->IsOp("=="))
+        if(op->IsOp("=="))
             pred = llvm::CmpInst::ICMP_EQ;
         else if(op->IsOp("!="))
             pred = llvm::CmpInst::ICMP_NE;
-	llvm::Value *v = llvm::CmpInst::Create(llvm::CmpInst::ICmp, pred, lhs, rhs, "", bb);
+        llvm::Value *v = llvm::CmpInst::Create(llvm::CmpInst::ICmp, pred, lhs, rhs, "", bb);
         return v;
     }
     return NULL;
 }
+
 void CompoundExpr::PrintChildren(int indentLevel) {
    if (left) left->Print(indentLevel+1);
    op->Print(indentLevel+1);
@@ -348,29 +381,31 @@ ConditionalExpr::ConditionalExpr(Expr *c, Expr *t, Expr *f)
     (trueExpr=t)->SetParent(this);
     (falseExpr=f)->SetParent(this);
 }
+
 llvm::Value *ConditionalExpr::Emit(){    
     llvm::Value *testval=this->cond->Emit();
     llvm::Value *tval=this->trueExpr->Emit();
     llvm::Value *fval=this->falseExpr->Emit();
-    llvm::Value*result=llvm::SelectInst::Create(testval,tval,fval,"",irgen->GetBasicBlock());
+    llvm::Value *result=llvm::SelectInst::Create(testval,tval,fval,"",irgen->GetBasicBlock());
     return result;    
 }
+
 llvm::Value *LogicalExpr::Emit() {
     Operator *op = this->op;
     llvm::Value *lhs = left->Emit();
     llvm::Value *rhs = right->Emit();
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
     if(op->IsOp("&&")){
-    	llvm::Value *v = llvm::BinaryOperator::CreateAnd(lhs, rhs, "LogicalAnd", bb);
-    	return v;
+        llvm::Value *v = llvm::BinaryOperator::CreateAnd(lhs, rhs, "LogicalAnd", bb);
+        return v;
     }
     if(op->IsOp("||")) 
     {
-    	llvm::Value *v = llvm::BinaryOperator::CreateOr(lhs, rhs, "LogicalOr", bb);
-    	return v;
+        llvm::Value *v = llvm::BinaryOperator::CreateOr(lhs, rhs, "LogicalOr", bb);
+        return v;
     }
     return NULL;
-}   
+}
 
 void ConditionalExpr::PrintChildren(int indentLevel) {
     cond->Print(indentLevel+1, "(cond) ");
@@ -386,6 +421,14 @@ void ArrayAccess::PrintChildren(int indentLevel) {
     base->Print(indentLevel+1);
     subscript->Print(indentLevel+1, "(subscript) ");
 }
+
+llvm::Value *ArrayAccess::Emit() {
+    vector<llvm::Value*> arrayBase;
+    arrayBase.push_back(llvm::ConstantInt::get(irgen->GetIntType(), 0));
+    arrayBase.push_back(subscript->Emit());
+    llvm::Value *elem = llvm::GetElementPtrInst::Create(dynamic_cast<llvm::LoadInst*>(this->base->Emit())->getPointerOperand(), arrayBase, "", irgen->GetBasicBlock());
+    return new llvm::LoadInst(elem, "", irgen->GetBasicBlock());
+}
      
 FieldAccess::FieldAccess(Expr *b, Identifier *f) 
   : LValue(b? Join(b->GetLocation(), f->GetLocation()) : *f->GetLocation()) {
@@ -394,7 +437,6 @@ FieldAccess::FieldAccess(Expr *b, Identifier *f)
     if (base) base->SetParent(this); 
     (field=f)->SetParent(this);
 }
-
 
 void FieldAccess::PrintChildren(int indentLevel) {
     if (base) base->Print(indentLevel+1);
@@ -414,4 +456,18 @@ void Call::PrintChildren(int indentLevel) {
    if (field) field->Print(indentLevel+1);
    if (actuals) actuals->PrintAll(indentLevel+1, "(actuals) ");
 }
+
+llvm::Value *Call::Emit() {
+    vector<llvm::Value*> av;
+    llvm::Function* f = (llvm::Function*)symtab->LookUpValue(field->GetName());
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+
+    for(int i = 0; i < actuals->NumElements(); i++) {
+        av.push_back(actuals->Nth(i)->Emit());
+    }    
+    if (f==NULL)
+      std::cerr<<"FunctionCall"<<endl;
+    return llvm::CallInst::Create(f, av, "FunctionCall", bb);
+} 
+
 
