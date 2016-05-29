@@ -49,7 +49,10 @@ VarExpr::VarExpr(yyltype loc, Identifier *ident) : Expr(loc) {
 void VarExpr::PrintChildren(int indentLevel) {
     id->Print(indentLevel+1);
 }
-
+llvm::Value *VarExpr::EmitAddress(){
+    llvm::Value *var=symtab->LookUpValue(id->GetName());
+    return var;
+}
 llvm::Value *VarExpr::Emit() {
     //std::cerr<<"Var Expr Done"<<endl;
     llvm::Value *v = symtab->LookUpValue(GetIdentifier()->GetName());
@@ -87,7 +90,7 @@ llvm::Value *ArithmeticExpr::Emit() {
         llvm::Value *lhs = this->left->Emit();
 
         if(op->IsOp("+")) {
-            //std::cerr<<"Error is here"<<endl;
+            //std::cout<<"Error is here"<<endl;
 	    llvm::Value *result = llvm::BinaryOperator::CreateAdd(lhs, rhs, "", bb);
             return result;
         }
@@ -97,14 +100,17 @@ llvm::Value *ArithmeticExpr::Emit() {
             if(lhs->getType() == irgen->GetType(Type::vec2Type)) {
                 vec = lhs;
                 fp = rhs;
+		//std::cout<<"Left Vec"<<endl;
             }
             else if(rhs->getType() == irgen->GetType(Type::vec2Type)) {
                 vec = rhs;
                 fp = lhs;
+		//std::cout<<"Right Vec"<<endl;
             }
             else {
                 vec = NULL;
                 fp = NULL;
+		//std::cout<<"Some special type";
             }
 
             if(vec == NULL) {
@@ -137,6 +143,7 @@ llvm::Value *ArithmeticExpr::Emit() {
 	    return result;
 	}
     }
+    //std::cout<<"returning null"<<endl;
     return NULL;
 }
 
@@ -187,15 +194,91 @@ llvm::Value *RelationalExpr::Emit() {
 
 llvm::Value *AssignExpr::Emit() {
     Operator *op = this->op;
+    llvm::Value *store;
     llvm::Value *rv = this->right->Emit();
     llvm::Value *lv = this->left->Emit();
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(lv);
     llvm::Value *loc = ld->getPointerOperand();
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
-
-    if(op->IsOp("=")) {
-	//std::cerr<<"Assign!"<<endl;
-        llvm::Value* in = new llvm::StoreInst(rv, loc, bb);
+    FieldAccess* l=dynamic_cast<FieldAccess*>(left);
+    FieldAccess* r=dynamic_cast<FieldAccess*>(right);
+    char *swiz=NULL;
+    char *rswiz=NULL;
+     if(op->IsOp("=")) {
+	if (l)
+	{
+		llvm::Value* la=l->EmitAddress();
+		if (rv->getType() == irgen->GetType(Type::floatType)){
+			//std::cerr<<"Assign vec to FA"<<endl;
+			swiz=l->GetField()->GetName();
+			llvm::Constant *idx;
+			for(int i=0;i<strlen(swiz); i++) {
+				if(swiz[i] == 'x')
+					idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+				else if(swiz[i] == 'y')
+					idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+				else if(swiz[i] == 'z')
+					idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+				else if(swiz[i] == 'w')
+					idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+				llvm::Value *extract=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
+				store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
+			}
+		
+		}
+		else{	
+			if (!r){
+				swiz=l->GetField()->GetName();
+				llvm::Constant *idx;
+				//std::cerr<<"Assign float to FA"<<endl;
+				for(int i=0;i<strlen(swiz); i++) {
+					if(swiz[i] == 'x')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+					else if(swiz[i] == 'y')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+					else if(swiz[i] == 'z')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+					else if(swiz[i] == 'w')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					store=llvm::InsertElementInst::Create(loc,rv,idx,"",bb);
+				}
+			}
+			else{
+				//std::cerr<<"Assign FA to FA"<<endl;
+				llvm::Value *ra = r->EmitAddress();
+				swiz=l->GetField()->GetName();
+				rswiz=r->GetField()->GetName();
+				llvm::Constant *idx;
+				llvm::Constant *ridx;
+				for(int i=0;i<strlen(swiz); i++) {
+					if(swiz[i] == 'x')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+					else if(swiz[i] == 'y')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+					else if(swiz[i] == 'z')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+					else if(swiz[i] == 'w')
+						idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					if(rswiz[i] == 'x')
+						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+					else if(rswiz[i] == 'y')
+						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+					else if(rswiz[i] == 'z')
+						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+					else if(rswiz[i] == 'w')
+						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					llvm::Value *extract=llvm::ExtractElementInst::Create(ra,ridx,"",bb);
+					store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
+				}			
+			}		
+		}
+	llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+	}	
+     	else
+	{
+           llvm::Value* in = new llvm::StoreInst(rv, loc, bb);
+	}
     }
 
     else if((lv->getType() == irgen->GetType(Type::floatType)) && (rv->getType() == irgen->GetType(Type::floatType))) {
@@ -270,7 +353,17 @@ llvm::Value *PostfixExpr::Emit() {
     }
     return v;
 }
-
+llvm::Value *FieldAccess::EmitAddress()
+{
+  VarExpr* isVar=dynamic_cast<VarExpr*>(base);
+  if (isVar){
+  	return isVar->EmitAddress();
+  }
+  FieldAccess* isFA=dynamic_cast<FieldAccess*>(base);
+  {
+  	return isFA->EmitAddress();
+  }
+}
 llvm::Value *FieldAccess::Emit() {
     if(this->base != NULL) {
         llvm::Value *val = base->Emit();

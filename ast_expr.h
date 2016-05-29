@@ -94,6 +94,7 @@ class VarExpr : public Expr
     void PrintChildren(int indentLevel);
     Identifier *GetIdentifier() {return id;}
     llvm::Value *Emit();
+    llvm::Value *EmitAddress();
 };
 
 class Operator : public Node 
@@ -218,6 +219,9 @@ class FieldAccess : public LValue
     const char *GetPrintNameForNode() { return "FieldAccess"; }
     void PrintChildren(int indentLevel);
     llvm::Value *Emit();
+    Identifier *GetField(){return field;}
+    llvm::Value *EmitAddress();
+
 };
 
 /* Like field access, call is used both for qualified base.field()
