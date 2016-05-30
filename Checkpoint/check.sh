@@ -1,4 +1,6 @@
-unning './check.sh' will not rebuild your project, but './check.sh .' will
+#!/bin/bash
+
+# Running './check.sh' will not rebuild your project, but './check.sh .' will
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -37,8 +39,8 @@ rm *.bc 2> /dev/null
 
 
 function runTest {
-		path=$1
-		glsl=$2
+        path=$1
+        glsl=$2
         prefix=$3
         fbname=${glsl%%.*}
         bc=${fbname}.bc
@@ -46,9 +48,9 @@ function runTest {
         
 
         printf "${NC}${prefix}Test case %s: " $fbname
-            	 
+                 
         # glc
-        eval $path/glc < $glsl > $bc 2> /dev/null    	 
+        eval $path/glc < $glsl > $bc 2> /dev/null        
         if [ $? -ne 0 ]; then 
                 printf "$YELL\nglc exited with error status\n"
                 printf "run  ../glc < $glsl  for more info\n"
@@ -79,16 +81,16 @@ function runTest {
 
 
 for glsl in *.glsl; do
-	runTest .. $glsl ""
+    runTest .. $glsl ""
 done
 
 if [ -d $TA ]; then
-	cd $TA
-	for glsl in *.glsl; do
-		runTest ../.. $glsl "Official " 
-	done
+    cd $TA
+    for glsl in *.glsl; do
+        runTest ../.. $glsl "Official " 
+    done
 else 
-	printf "$YELL Could not find directory: $TA\n"
+    printf "$YELL Could not find directory: $TA\n"
 fi
 
 

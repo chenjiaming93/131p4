@@ -1,5 +1,4 @@
-int b;
-int whiletest()
+int whiletest(int b)
 {
 
   int i;
@@ -8,7 +7,7 @@ int whiletest()
   i = 0;
   sum = 0;
   while ( i < b ) {
-    sum = sum + i;
+    sum += i;
     i = i + 1;
   }
   return sum;

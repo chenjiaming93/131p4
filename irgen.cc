@@ -11,6 +11,9 @@ IRGenerator::IRGenerator() :
     currentFunc(NULL),
     currentBB(NULL)
 {
+    fbs = new stack<llvm::BasicBlock*>;
+    cbs = new stack<llvm::BasicBlock*>;
+    lbs = new stack<llvm::BasicBlock*>;
 }
 
 IRGenerator::~IRGenerator() {
