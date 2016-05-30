@@ -196,9 +196,6 @@ llvm::Value *AssignExpr::Emit() {
     Operator *op = this->op;
     llvm::Value *store;
     llvm::Value *rv = this->right->Emit();
-    if( llvm::StoreInst* si = dynamic_cast<llvm::StoreInst*>(rv) ) {
-   	 rv = si->getValueOperand();
- 	 }
     llvm::Value *lv = this->left->Emit();
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(lv);
     llvm::Value *loc = ld->getPointerOperand();
