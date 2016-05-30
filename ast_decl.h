@@ -51,11 +51,11 @@ class VarDecl : public Decl
     VarDecl(Identifier *name, Type *type, Expr *assignTo = NULL);
     VarDecl(Identifier *name, TypeQualifier *typeq, Expr *assignTo = NULL);
     VarDecl(Identifier *name, Type *type, TypeQualifier *typeq, Expr *assignTo = NULL);
-    llvm::Value *Emit();
     const char *GetPrintNameForNode() { return "VarDecl"; }
     void PrintChildren(int indentLevel);
     Type *GetType() const { return type; }
     Expr *GetAssignTo() { return assignTo; }
+    llvm::Value *Emit();
     
 };
 
@@ -75,7 +75,6 @@ class FnDecl : public Decl
     Stmt *body;
     
   public:
-    llvm::Value *Emit();
     FnDecl() : Decl(), formals(NULL), returnType(NULL), returnTypeq(NULL), body(NULL) {}
     FnDecl(Identifier *name, Type *returnType, List<VarDecl*> *formals);
     FnDecl(Identifier *name, Type *returnType, TypeQualifier *returnTypeq, List<VarDecl*> *formals);
@@ -84,7 +83,8 @@ class FnDecl : public Decl
     void PrintChildren(int indentLevel);
 
     Type *GetType() const { return returnType; }
-    List<VarDecl*> *GetFormals() {return formals;}
+    List<VarDecl*> *GetFormals() { return formals; }
+    llvm::Value *Emit();
 };
 
 class FormalsError : public FnDecl

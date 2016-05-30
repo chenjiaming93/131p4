@@ -12,12 +12,16 @@
 #define _H_IRGen
 
 // LLVM headers
+#include <vector>
+#include <stack>
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/CFG.h"
 #include "ast_type.h"
+
+using namespace std;
 
 class IRGenerator {
   public:
@@ -38,6 +42,10 @@ class IRGenerator {
     llvm::Type *GetBoolType() const;
     llvm::Type *GetFloatType() const;
     llvm::Type *GetType(Type *type) const;
+
+    stack<llvm::BasicBlock*> *fbs;
+    stack<llvm::BasicBlock*> *cbs;
+    stack<llvm::BasicBlock*> *lbs;
 
   private:
     llvm::LLVMContext *context;

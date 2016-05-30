@@ -1,6 +1,6 @@
 #!/bin/bash
-for i in $(ls *.*)
+for i in $(ls *.glsl *.dat *.out)
 do
-echo "begin to modify the fileencoding of $i to utf-8"
+echo "begin to modify the fileformat"
 vi +":set fileformat=unix" +":wq" $i
 done

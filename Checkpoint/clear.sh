@@ -1,2 +1,3 @@
 #!/bin/bash
-rm -rf *.bc
+rm -rf *.ll;
+rm -rf *.bc;

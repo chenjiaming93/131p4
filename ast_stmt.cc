@@ -29,6 +29,7 @@ llvm::Value *Program::Emit() {
     for(int i = 0; i < decls->NumElements(); i++) {
         decls->Nth(i)->Emit();
     }
+    //module->dump();
     llvm::WriteBitcodeToFile(module, llvm::outs());
     return NULL;
 }
@@ -57,12 +58,16 @@ llvm::Value *ForStmt::Emit() {
     llvm::BranchInst::Create(db, fb, testVal, hb);
     irgen->SetBasicBlock(db);
 
-    // Break in the for-loop
-    symtab->breakBlock = fb;
-    symtab->continueBlock = sb;
+    //symtab->breakBlock = fb;
+    //symtab->continueBlock = sb;
+
+    irgen->lbs->push(fb);
+    irgen->fbs->push(fb);
+    irgen->cbs->push(sb);
 
     body->Emit();
-    llvm::BranchInst::Create(sb, db);
+    if(db->getTerminator() == NULL)
+        llvm::BranchInst::Create(sb, db);
 
     sb->moveAfter(db);
     irgen->SetBasicBlock(sb);
@@ -72,8 +77,21 @@ llvm::Value *ForStmt::Emit() {
 
     if(pred_begin(fb) == pred_end(fb))
         new llvm::UnreachableInst(*context, fb);
-    else
+    else {
         irgen->SetBasicBlock(fb);
+        llvm::BasicBlock *tfb = irgen->fbs->top();
+        if(irgen->fbs->size() != 0) {
+            if(fb != tfb) {
+                irgen->fbs->pop();
+                if(tfb->getTerminator() == NULL)
+                    llvm::BranchInst::Create(sb, tfb);
+            }
+        }
+    }
+
+    irgen->lbs->pop();
+    irgen->fbs->pop();
+    irgen->cbs->pop();
 
     symtab->Pop();
     return NULL;
@@ -92,6 +110,10 @@ llvm::Value *WhileStmt::Emit() {
     llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
     llvm::BasicBlock *db = llvm::BasicBlock::Create(*context, "body", f);
 
+    irgen->lbs->push(fb);
+    irgen->fbs->push(fb);
+    irgen->cbs->push(hb); 
+
     llvm::BranchInst::Create(hb, cb);
     hb->moveAfter(cb);
     irgen->SetBasicBlock(hb);
@@ -100,18 +122,32 @@ llvm::Value *WhileStmt::Emit() {
     llvm::BranchInst::Create(db, fb, testVal, hb);
     irgen->SetBasicBlock(db);
 
-    // Break in the while-loop
-    symtab->breakBlock = fb; 
-    symtab->continueBlock = hb;
+    //symtab->breakBlock = fb; 
+    //symtab->continueBlock = hb;
 
     body->Emit();
-    llvm::BranchInst::Create(hb, db);
+    if(db->getTerminator() == NULL)
+        llvm::BranchInst::Create(hb, db);
+
     fb->moveAfter(db);
 
-    if( pred_begin(fb) == pred_end(fb))
+    if(pred_begin(fb) == pred_end(fb))
         new llvm::UnreachableInst(*context, fb);
-    else
-        irgen->SetBasicBlock(fb); 
+    else {
+        irgen->SetBasicBlock(fb);
+        llvm::BasicBlock* tfb = irgen->fbs->top();
+        if(irgen->fbs->size() != 0) {
+            if(fb != tfb) {
+                irgen->fbs->pop();
+                if(tfb->getTerminator() == NULL)
+                    llvm::BranchInst::Create(hb, tfb);
+            }
+        }
+    }
+
+    irgen->lbs->pop();
+    irgen->fbs->pop();
+    irgen->cbs->pop(); 
 
     symtab->Pop();
     return NULL;
@@ -128,9 +164,8 @@ llvm::Value *IfStmt::Emit() {
 
     llvm::BasicBlock *cb = irgen->GetBasicBlock();
     llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
-    llvm::BasicBlock *eb = NULL;
-    if (elseBody != NULL)
-        eb = llvm::BasicBlock::Create(*context, "else", f);
+    irgen->fbs->push(fb);
+    llvm::BasicBlock *eb = llvm::BasicBlock::Create(*context, "else", f);
     llvm::BasicBlock *tb = llvm::BasicBlock::Create(*context, "then", f);
 
     llvm::BranchInst::Create(tb, elseBody ? eb:fb, testVal, cb);
@@ -142,17 +177,34 @@ llvm::Value *IfStmt::Emit() {
     if(tb->getTerminator() == NULL)
         llvm::BranchInst::Create(fb, tb);
 
-    irgen->SetBasicBlock(eb);
-    elseBody->Emit();
+    if(elseBody != NULL) {
+        irgen->SetBasicBlock(eb);
+        elseBody->Emit();
+    }
+
     fb->moveAfter(eb);
 
-    if (eb != NULL && eb->getTerminator() == NULL)
+    if (eb->getTerminator() == NULL && elseBody != NULL)
         llvm::BranchInst::Create(fb, eb);
+    else if(pred_begin(eb) == pred_end(eb))
+        new llvm::UnreachableInst(*context, eb);
 
-    if(pred_begin(fb) == pred_end(fb))
+    if(pred_begin(fb) == pred_end(fb)) {
         new llvm::UnreachableInst(*context, fb);
-    else
+    }
+    else {
         irgen->SetBasicBlock(fb);
+        llvm::BasicBlock *tfb = irgen->fbs->top();
+        if(irgen->fbs->size() != 0) {
+            if(fb != tfb) {
+                irgen->fbs->pop();
+                if(tfb->getTerminator() == NULL)
+                    llvm::BranchInst::Create(fb, tfb);
+                if(irgen->fbs->size() == 1)
+                    irgen->fbs->pop();
+            }
+        }
+    }
 
     symtab->Pop();
     return NULL;
@@ -243,14 +295,13 @@ llvm::Value *DeclStmt::Emit() {
 
 llvm::Value *BreakStmt::Emit() {
     llvm::BasicBlock *cb = irgen->GetBasicBlock();
-    llvm::BranchInst::Create(symtab->breakBlock , cb);
+    llvm::BranchInst::Create(irgen->lbs->top(), cb);
     return NULL;
 }
 
 llvm::Value *ContinueStmt::Emit() {
-    irgen->GetOrCreateModule("glsl.bc")->dump();
     llvm::BasicBlock *cb = irgen->GetBasicBlock();
-    llvm::BranchInst::Create(symtab->continueBlock, cb); 
+    llvm::BranchInst::Create(irgen->cbs->top(), cb); 
     return NULL;
 }
 
@@ -279,12 +330,12 @@ llvm::Value *Case::Emit() {
 llvm::Value *ReturnStmt::Emit() {
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
     llvm::LLVMContext *context = irgen->GetContext();
-    if (expr != NULL) {
+    if(expr != NULL) {
         llvm::Value *val = expr->Emit();
-    	llvm::ReturnInst::Create(*context, val, bb);
+        llvm::ReturnInst::Create(*context, val, bb);
     }
     else {
-    	llvm::ReturnInst::Create(*context,bb);
+        llvm::ReturnInst::Create(*context,bb);
     }
     return NULL;
 }
