@@ -255,6 +255,7 @@ llvm::Value *AssignExpr::Emit() {
 			else{
 				//std::cerr<<"Assign FA to FA"<<endl;
 				llvm::Value *ra = r->EmitAddress();
+				llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
 				swiz=l->GetField()->GetName();
 				rswiz=r->GetField()->GetName();
 				llvm::Constant *idx;
@@ -277,7 +278,7 @@ llvm::Value *AssignExpr::Emit() {
 					else if(rswiz[i] == 'w')
 						ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
 					loc=new llvm::LoadInst(la,"",bb);
-					llvm::Value *extract=llvm::ExtractElementInst::Create(ra,ridx,"",bb);
+					llvm::Value *extract=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
 					store=llvm::InsertElementInst::Create(loc,extract,idx,"",bb);
 					llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
 

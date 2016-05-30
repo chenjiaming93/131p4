@@ -1,2 +1,2 @@
 funct: whiletest
-param: int, 101
+gin: b, int, 101
