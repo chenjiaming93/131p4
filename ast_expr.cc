@@ -62,88 +62,324 @@ llvm::Value *VarExpr::Emit() {
 }
 
 llvm::Value *ArithmeticExpr::Emit() {
-    Operator *op = this->op;
-    //std::cerr<<"Entering Arithmetic Expr"<<endl;
+    Operator *op = this->op;    
+    llvm::BasicBlock *bb = irgen->GetBasicBlock();
+    FieldAccess* l=dynamic_cast<FieldAccess*>(left);
+    FieldAccess* r=dynamic_cast<FieldAccess*>(right);
+    char *swiz=NULL;
+    char *rswiz=NULL;    
     if(this->left == NULL && this->right != NULL) {
-        llvm::Value *rv = this->right->Emit();
-        llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(rv);
-        llvm::Value *loc = ld->getPointerOperand();
+	    llvm::Value *rhs = this->right->Emit();
+	    llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(rhs);
+            llvm::Value *loc = ld->getPointerOperand();
+	    if(rhs->getType() == irgen->GetType(Type::intType))
+	    {
+		llvm::Value *val = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+	    	if(op->IsOp("++")) {
+            		llvm::Value *dec = llvm::BinaryOperator::CreateAdd(rhs, val, "", bb);
+            		llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
+			return dec;
+       		}
+        	else {
+            		llvm::Value *dec = llvm::BinaryOperator::CreateSub(rhs, val, "", bb);
+            		llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
+			return dec;
+        	}
+	    }
+	    if(!r&&rhs->getType() == irgen->GetType(Type::floatType))
+	    {
+	    	llvm::Value *val = llvm::ConstantFP::get(irgen->GetFloatType(), 1.0);
+	    	if(op->IsOp("++")) {
+            		llvm::Value *dec = llvm::BinaryOperator::CreateFAdd(rhs, val, "", bb);
+            		llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
+			return dec;
+       		}
+        	else {
+            		llvm::Value *dec = llvm::BinaryOperator::CreateFSub(rhs, val, "", bb);
+            		llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
+			return dec;
+        	}	    
+	    }
+	    else if (r)
+	    {
+		llvm::Value *val = llvm::ConstantFP::get(irgen->GetFloatType(), 1.0);
+	    	rswiz=r->GetField()->GetName();
+		llvm::Value* ra=r->EmitAddress();
+		llvm::Value *store;
+		llvm::Constant *ridx;
+		llvm::Value *lv;
+		for(int i=0;i<strlen(rswiz); i++) {
+           		if(rswiz[i] == 'x')
+				ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+			else if(rswiz[i] == 'y')
+				ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+			else if(rswiz[i] == 'z')
+				ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+			else if(swiz[i] == 'w')
+				ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);                		            	
+			loc=new llvm::LoadInst(ra,"",bb);
+			llvm::Value *extract=llvm::ExtractElementInst::Create(loc,ridx,"",bb);
+			if(op->IsOp("++"))
+				lv = llvm::BinaryOperator::CreateFAdd(extract,val, "FA", bb);			
+			else
+				lv = llvm::BinaryOperator::CreateFSub(extract,val, "FA", bb);
+			store=llvm::InsertElementInst::Create(loc,lv,ridx,"",bb);    			
+                	llvm::Value* result = new llvm::StoreInst(store,ra, "",bb);	
+	   	}
+		rhs=right->Emit();
+		return rhs;
 
-        llvm::BasicBlock *bb = irgen->GetBasicBlock();
-        llvm::Value *val = llvm::ConstantInt::get(irgen->GetIntType(), 1);
-
-        if(op->IsOp("++")) {
-            llvm::Value *incre = llvm::BinaryOperator::CreateAdd(rv, val, "", bb);
-            llvm::Value *in = new llvm::StoreInst(incre, loc, bb);
-            return incre;
-        }
-        else if(op->IsOp("--")) {
-            llvm::Value *decre = llvm::BinaryOperator::CreateSub(rv, val, "", bb);
-            llvm::Value *in = new llvm::StoreInst(decre, loc, bb);
-            return decre;
-        }
+	    }
     }
 
     if (this->left != NULL && this->right != NULL) {
-        llvm::BasicBlock *bb = irgen->GetBasicBlock();
-        llvm::Value *rhs = this->right->Emit();
-        llvm::Value *lhs = this->left->Emit();
-
+	llvm::Value *rhs = this->right->Emit();
+    	llvm::Value *lhs = this->left->Emit();
+	int rlen=0;
+	int llen=0;
+	if (l)
+	    llen=strlen(l->GetField()->GetName());
+	if (r)
+	    rlen=strlen(r->GetField()->GetName());
+	llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(rhs);
+        llvm::Value *loc = ld->getPointerOperand();
         if(op->IsOp("+")) {
-            //std::cout<<"Error is here"<<endl;
-        llvm::Value *result = llvm::BinaryOperator::CreateAdd(lhs, rhs, "", bb);
-            return result;
+            if(rhs->getType() == irgen->GetType(Type::intType)){
+            	llvm::Value *result = llvm::BinaryOperator::CreateAdd(lhs, rhs, "", bb);
+            	return result;
+	    }
+	    else if (rhs->getType() == irgen->GetType(Type::floatType)&&lhs->getType() == irgen->GetType(Type::floatType))
+	    {		
+		llvm::Value *result = llvm::BinaryOperator::CreateFAdd(lhs, rhs, "", bb);
+            	return result;	    
+	    }
+	    else {
+		if (rhs->getType() != irgen->GetType(Type::floatType)&&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+	    		llvm::Value *result = llvm::BinaryOperator::CreateFAdd(lhs, rhs, "", bb);
+            		return result;
+		}
+		else if (rhs->getType() == irgen->GetType(Type::floatType) &&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(lhs->getType());
+		     llvm::Constant *idx;
+		     if (!l){
+		     	if (lhs->getType()==irgen->GetType(Type::vec2Type))
+				llen=2;
+			else if (lhs->getType()==irgen->GetType(Type::vec3Type))
+				llen=3;
+			else if (lhs->getType()==irgen->GetType(Type::vec4Type))
+				llen=4;
+		     }
+		     for (int i=0;i<llen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,rhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFAdd(lhs,undefVal, "", bb);
+            	     return result;
+		}
+		else
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(rhs->getType());
+		     llvm::Constant *idx;
+		     if (!r){
+		     	if (rhs->getType()==irgen->GetType(Type::vec2Type))
+				rlen=2;
+			else if (rhs->getType()==irgen->GetType(Type::vec3Type))
+				rlen=3;
+			else if (rhs->getType()==irgen->GetType(Type::vec4Type))
+				rlen=4;
+		     }
+		     for (int i=0;i<rlen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,lhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFAdd(rhs,undefVal, "", bb);
+            	     return result;
+		}
+	    }	    
         }
-        else if(op->IsOp("*")) {
-            llvm::Value *vec;
-            llvm::Value *fp;
-            if(lhs->getType() == irgen->GetType(Type::vec2Type)) {
-                vec = lhs;
-                fp = rhs;
-            //std::cout<<"Left Vec"<<endl;
-            }
-            else if(rhs->getType() == irgen->GetType(Type::vec2Type)) {
-                vec = rhs;
-                fp = lhs;
-            //std::cout<<"Right Vec"<<endl;
-            }
-            else {
-                vec = NULL;
-                fp = NULL;
-            //std::cout<<"Some special type";
-            }
-
-            if(vec == NULL) {
-                llvm::Value *mul = llvm::BinaryOperator::CreateMul(lhs, rhs, "", bb);
-                return mul;
-            }
-            else {
-                llvm::Value *v = llvm::Constant::getNullValue(irgen->GetType(Type::vec2Type));
-                llvm::LoadInst *l = llvm::cast<llvm::LoadInst>(vec);
-                llvm::VectorType *vector = llvm::cast<llvm::VectorType>(l);
-                for(int i = 0; i < vector->getNumElements(); i++) {
-                    llvm::Value *num = llvm::ConstantInt::get(irgen->GetIntType(), i);
-                    llvm::Value *elem = llvm::ExtractElementInst::Create(vec, num);
-                    llvm::Value *mult = llvm::BinaryOperator::CreateFMul(elem, fp);
-                    llvm::InsertElementInst::Create(v, mult, num, "", bb);
-                }
-                llvm::Value *ptr = l->getPointerOperand();
-                llvm::Value *in = new llvm::StoreInst(v, ptr, bb);
-                return v;
-            }
-        }
+    else if(op->IsOp("*")) {
+	    if(rhs->getType() == irgen->GetType(Type::intType)){
+            	llvm::Value *result = llvm::BinaryOperator::CreateMul(lhs, rhs, "", bb);
+            	return result;
+	    }
+	    else if (rhs->getType() == irgen->GetType(Type::floatType)&&lhs->getType() == irgen->GetType(Type::floatType))
+	    {		
+		llvm::Value *result = llvm::BinaryOperator::CreateFMul(lhs, rhs, "", bb);
+            	return result;	    
+	    }
+	    else {
+		if (rhs->getType() != irgen->GetType(Type::floatType)&&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+	    		llvm::Value *result = llvm::BinaryOperator::CreateFMul(lhs, rhs, "", bb);
+            		return result;
+		}
+		else if (rhs->getType() == irgen->GetType(Type::floatType) &&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(lhs->getType());
+		     llvm::Constant *idx;
+		     if (!l){
+		     	if (lhs->getType()==irgen->GetType(Type::vec2Type))
+				llen=2;
+			else if (lhs->getType()==irgen->GetType(Type::vec3Type))
+				llen=3;
+			else if (lhs->getType()==irgen->GetType(Type::vec4Type))
+				llen=4;
+		     }
+		     for (int i=0;i<llen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,rhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFMul(lhs,undefVal, "", bb);
+            	     return result;
+		}
+		else
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(rhs->getType());
+		     llvm::Constant *idx;
+		     if (!r){
+		     	if (rhs->getType()==irgen->GetType(Type::vec2Type))
+				rlen=2;
+			else if (rhs->getType()==irgen->GetType(Type::vec3Type))
+				rlen=3;
+			else if (rhs->getType()==irgen->GetType(Type::vec4Type))
+				rlen=4;
+		     }
+		     for (int i=0;i<rlen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,lhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFMul(undefVal,rhs, "", bb);
+            	     return result;
+		}
+	    }
+ 
+    }
     else if (op->IsOp("-"))
     {
-        llvm::Value *result = llvm::BinaryOperator::CreateSub(lhs, rhs, "", bb);
-        return result;
+	    if(rhs->getType() == irgen->GetType(Type::intType)){
+            	llvm::Value *result = llvm::BinaryOperator::CreateSub(lhs, rhs, "", bb);
+            	return result;
+	    }
+	    else if (rhs->getType() == irgen->GetType(Type::floatType)&&lhs->getType() == irgen->GetType(Type::floatType))
+	    {		
+		llvm::Value *result = llvm::BinaryOperator::CreateFSub(lhs, rhs, "", bb);
+            	return result;	    
+	    }
+	    else {
+		if (rhs->getType() != irgen->GetType(Type::floatType)&&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+	    		llvm::Value *result = llvm::BinaryOperator::CreateFSub(lhs, rhs, "", bb);
+            		return result;
+		}
+		else if (rhs->getType() == irgen->GetType(Type::floatType) &&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(lhs->getType());
+		     llvm::Constant *idx;
+		     if (!l){
+		     	if (lhs->getType()==irgen->GetType(Type::vec2Type))
+				llen=2;
+			else if (lhs->getType()==irgen->GetType(Type::vec3Type))
+				llen=3;
+			else if (lhs->getType()==irgen->GetType(Type::vec4Type))
+				llen=4;
+		     }
+		     for (int i=0;i<llen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,rhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFSub(lhs,undefVal, "", bb);
+            	     return result;
+		}
+		else
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(rhs->getType());
+		     llvm::Constant *idx;
+		     if (!r){
+		     	if (rhs->getType()==irgen->GetType(Type::vec2Type))
+				rlen=2;
+			else if (rhs->getType()==irgen->GetType(Type::vec3Type))
+				rlen=3;
+			else if (rhs->getType()==irgen->GetType(Type::vec4Type))
+				rlen=4;
+		     }
+		     for (int i=0;i<rlen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,lhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFSub(undefVal,rhs, "", bb);
+            	     return result;
+		}
+	    }
+
     }
     else if (op->IsOp("/"))
     {
-        llvm::Value *result = llvm::BinaryOperator::CreateSDiv(lhs, rhs, "", bb);
-        return result;
+       if(rhs->getType() == irgen->GetType(Type::intType)){
+            	llvm::Value *result = llvm::BinaryOperator::CreateSDiv(lhs, rhs, "", bb);
+            	return result;
+	    }
+	    else if (rhs->getType() == irgen->GetType(Type::floatType)&&lhs->getType() == irgen->GetType(Type::floatType))
+	    {		
+		llvm::Value *result = llvm::BinaryOperator::CreateFDiv(lhs, rhs, "", bb);
+            	return result;	    
+	    }
+	    else {
+		if (rhs->getType() != irgen->GetType(Type::floatType)&&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+	    		llvm::Value *result = llvm::BinaryOperator::CreateFDiv(lhs, rhs, "", bb);
+            		return result;
+		}
+		else if (rhs->getType() == irgen->GetType(Type::floatType) &&lhs->getType() != irgen->GetType(Type::floatType))
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(lhs->getType());
+		     llvm::Constant *idx;
+		     if (!l){
+		     	if (lhs->getType()==irgen->GetType(Type::vec2Type))
+				llen=2;
+			else if (lhs->getType()==irgen->GetType(Type::vec3Type))
+				llen=3;
+			else if (lhs->getType()==irgen->GetType(Type::vec4Type))
+				llen=4;
+		     }
+		     for (int i=0;i<llen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,rhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFDiv(lhs,undefVal, "", bb);
+            	     return result;
+		}
+		else
+		{
+		     llvm::Value *undefVal = llvm::UndefValue::get(rhs->getType());
+		     llvm::Constant *idx;
+		     if (!r){
+		     	if (rhs->getType()==irgen->GetType(Type::vec2Type))
+				rlen=2;
+			else if (rhs->getType()==irgen->GetType(Type::vec3Type))
+				rlen=3;
+			else if (rhs->getType()==irgen->GetType(Type::vec4Type))
+				rlen=4;
+		     }
+		     for (int i=0;i<rlen;i++)
+		     {
+		     	idx = llvm::ConstantInt::get(irgen->GetIntType(), i);
+			undefVal=llvm::InsertElementInst::Create(undefVal,lhs,idx,"newelement",bb);
+		     }
+		     llvm::Value *result = llvm::BinaryOperator::CreateFDiv(undefVal,rhs, "", bb);
+            	     return result;
+		}
+	    } 
     }
     }
-    //std::cout<<"returning null"<<endl;
     return NULL;
 }
 
@@ -406,7 +642,7 @@ llvm::Value *AssignExpr::Emit() {
 			veclen=2;
 		else if (lv->getType()==irgen->GetType(Type::vec3Type))
 			veclen=3;
-		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+		else if (lv->getType()==irgen->GetType(Type::vec4Type))
 			veclen=4;
 		if (r){
 			llvm::Value *ra = r->EmitAddress();
@@ -591,7 +827,7 @@ llvm::Value *AssignExpr::Emit() {
 			veclen=2;
 		else if (lv->getType()==irgen->GetType(Type::vec3Type))
 			veclen=3;
-		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+		else if (lv->getType()==irgen->GetType(Type::vec4Type))
 			veclen=4;
 		if (r){
 			llvm::Value *ra = r->EmitAddress();
@@ -776,7 +1012,7 @@ llvm::Value *AssignExpr::Emit() {
 			veclen=2;
 		else if (lv->getType()==irgen->GetType(Type::vec3Type))
 			veclen=3;
-		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+		else if (lv->getType()==irgen->GetType(Type::vec4Type))
 			veclen=4;
 		if (r){
 			llvm::Value *ra = r->EmitAddress();
@@ -961,7 +1197,7 @@ llvm::Value *AssignExpr::Emit() {
 			veclen=2;
 		else if (lv->getType()==irgen->GetType(Type::vec3Type))
 			veclen=3;
-		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+		else if (lv->getType()==irgen->GetType(Type::vec4Type))
 			veclen=4;
 		if (r){
 			llvm::Value *ra = r->EmitAddress();
@@ -1100,7 +1336,7 @@ llvm::Value *PostfixExpr::Emit() {
 		veclen=2;
 	   else if (v->getType()==irgen->GetType(Type::vec3Type))
 		veclen=3;
-	   else if (v->getType()==irgen->GetType(Type::vec3Type))
+	   else if (v->getType()==irgen->GetType(Type::vec4Type))
 		veclen=4;
 	   for (int i=0;i<veclen;i++)
 	   {
@@ -1112,7 +1348,8 @@ llvm::Value *PostfixExpr::Emit() {
 		else
 			lv = llvm::BinaryOperator::CreateFSub(extract,val, "FA", bb);
                 store=llvm::InsertElementInst::Create(v,lv,idx,"",bb);    			
-                llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);	   
+                llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+     				
 	   }	   	   
     }
     return v;
