@@ -55,6 +55,7 @@ class VarDecl : public Decl
     void PrintChildren(int indentLevel);
     Type *GetType() const { return type; }
     Expr *GetAssignTo() { return assignTo; }
+    bool isConst(){ return (typeq==TypeQualifier::constTypeQualifier); }
     llvm::Value *Emit();
     
 };
