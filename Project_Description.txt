@@ -1,0 +1,26 @@
+Jiaming Chen jic096@ucsd.edu
+Jiuyuan Huang jih068@ucsd.edu
+
+We started with ast.decl
+When handling VarDecl and FnDecl and basic statments,
+we also modified our SymTable.
+
+Then we started working on Expr. 
+We start with Assign Expr, then Arithemetic and Postfix. 
+At first, it supports Int and Float type.
+Then we added Array Access and Field Access.
+We then allow AssignExpr to support "=" for Field Access.
+Then we worked on "+=" and other operators based on "=" codes.
+Next we moved to Postfix Expr based on the codes from our AssignExpr.
+Then we completed Arithemetic Expr based on Postfix Expr and AssignExpr.
+
+Theh we worked on stmt and Call to ensure everything went well. 
+
+When meeting a bug, our solution is usually:
+1. add std::cerr to find bug location.(SegFault)
+2. llvm-dis .bc to check the generated llvm assembly.
+3. use dump to see if anything went wrong. 
+
+Testing
+ we used community cases basically.
+ We have a check.sh to test all cases automatically.
