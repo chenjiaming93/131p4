@@ -1,11 +1,9 @@
 vec2 a;
 float assign()
 {
-   vec4 v4;
-   v4.xy = a;
-   float t;
-   t = 1.0;
-   v4.y = t;
-   v4.xy+= a;
-   return v4.y;
+   vec2 b;
+   b.x=12.0;
+   b.y=10.0;
+   b-=a.xx;
+   return b.y;
 }

@@ -302,6 +302,7 @@ llvm::Value *AssignExpr::Emit() {
                         		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
 				 else if(rswiz[i] == 'w')
 					ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				 
 			         llvm::Value *extract=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
 				 llvm::Value *add = llvm::BinaryOperator::CreateFAdd(lv, extract, "RFloatPlusEqual", bb);
 				 llvm::Value *in = new llvm::StoreInst(add, loc, bb);
@@ -317,8 +318,7 @@ llvm::Value *AssignExpr::Emit() {
 		llvm::Value *in = new llvm::StoreInst(add, loc, bb);   	
 	    }
 	    else if (l){
-		llvm::Value* la=l->EmitAddress();
-		
+		llvm::Value* la=l->EmitAddress();		
 		//Field Access
 		if (r){
 			llvm::Value *ra = r->EmitAddress();
@@ -397,45 +397,632 @@ llvm::Value *AssignExpr::Emit() {
                     		store=llvm::InsertElementInst::Create(loc,add,idx,"",bb);
                     		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
                 	}
-			//std::cerr<<"Assign Vec to FA"<<endl<<std::flush;
-		
-		
+			//std::cerr<<"Assign Vec to FA"<<endl<<std::flush;		
 		}		
 	    }
 	    else{
-		//Vector
-	    	
+		int veclen=0;
+		if (lv->getType()==irgen->GetType(Type::vec2Type))
+			veclen=2;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=3;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=4;
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *ridx;
+			if (strlen(rswiz)>1)
+                	  for(int i=0;i<strlen(rswiz); i++) {
+                    			if(rswiz[i] == 'x')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    			else if(rswiz[i] == 'y')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    			else if(rswiz[i] == 'z')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    			else if(rswiz[i] == 'w')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *add = llvm::BinaryOperator::CreateFAdd(extract1,extract2, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,add,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+		    	  }
+			if (strlen(rswiz)==1)
+			{
+				if(rswiz[0] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[0] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[0] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[0] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				for (int i=0;i<veclen;i++)
+				{
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *add = llvm::BinaryOperator::CreateFAdd(extract1,extract2, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,add,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+				}
+			}
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            	    	for (int i=0;i<veclen;i++)
+			{
+				lv=this->left->Emit();
+				llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+		    		llvm::Value *extract=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    		llvm::Value *add = llvm::BinaryOperator::CreateFAdd(extract,rv, "FAtoVec", bb);
+                    		store=llvm::InsertElementInst::Create(lv,add,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+			}	
+        	}
+		else {
+			llvm::Value *add = llvm::BinaryOperator::CreateFAdd(lv, rv, "VectoVec", bb);
+			llvm::Value *in = new llvm::StoreInst(add, loc, bb);
+                }		    	
 	    }
-
     }
         else if(op->IsOp("-=")) {
-            if(lv->getType() == irgen->GetType(Type::floatType)){
-            	llvm::Value *sub = llvm::BinaryOperator::CreateFSub(lv, rv, "MinusEqual", bb);
-		llvm::Value *in = new llvm::StoreInst(sub, loc, bb);
+            if(!l&&(lv->getType() == irgen->GetType(Type::floatType))){
+               if (r){
+			//std::cerr<<"Assign FA to Float"<<endl<<std::flush;
+		        llvm::Value *ra = r->EmitAddress();
+			rswiz=r->GetField()->GetName();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+			llvm::Constant *ridx;
+			for(int i=0;i<strlen(rswiz); i++){
+				 if(rswiz[i] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+				 else if(rswiz[i] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		 else if(rswiz[i] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+				 else if(rswiz[i] == 'w')
+					ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				 
+			         llvm::Value *extract=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+				 llvm::Value *sub = llvm::BinaryOperator::CreateFSub(lv, extract, "RFloatPlusEqual", bb);
+				 llvm::Value *in = new llvm::StoreInst(sub, loc, bb);
+			}            	        	
+	       }
+	       else {
+			llvm::Value *sub = llvm::BinaryOperator::CreateFSub(lv, rv, "LFloatPlusEqual", bb);
+			llvm::Value *in = new llvm::StoreInst(sub, loc, bb);			
+	       }
 	    }
 	    else if(lv->getType() == irgen->GetType(Type::intType)) {
-	     	llvm::Value *sub = llvm::BinaryOperator::CreateSub(lv, rv, "MinusEqual", bb);
-		llvm::Value *in = new llvm::StoreInst(sub, loc, bb);  	
+		llvm::Value *sub = llvm::BinaryOperator::CreateSub(lv, rv, "IntPlusEqual", bb);
+		llvm::Value *in = new llvm::StoreInst(sub, loc, bb);   	
+	    }
+	    else if (l){
+		llvm::Value* la=l->EmitAddress();		
+		//Field Access
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	swiz=l->GetField()->GetName();
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *idx;
+                	llvm::Constant *ridx;
+                	for(int i=0;i<strlen(swiz); i++) {
+				int j=0;
+				if (strlen(rswiz)>1)
+					j=i;
+                    		if(swiz[i] == 'x')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		if(rswiz[j] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[j] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[j] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[j] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		loc=new llvm::LoadInst(la,"",bb);
+                    		llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    		llvm::Value *extract2=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+		    		llvm::Value *sub = llvm::BinaryOperator::CreateFSub(extract2,extract1, "FAtoFA", bb);
+				loc=new llvm::LoadInst(la,"",bb);
+                    		store=llvm::InsertElementInst::Create(loc,sub,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+		    }
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            		swiz=l->GetField()->GetName();
+            		llvm::Constant *idx;			
+                	//std::cerr<<"Assign float to FA"<<endl<<std::flush;
+            		for(int i=0;i<strlen(swiz); i++) {
+                		if(swiz[i] == 'x')
+                    			idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                   		else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                   		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);                		            		
+				loc=new llvm::LoadInst(la,"",bb);
+		        	llvm::Value *extract=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+				llvm::Value *sub = llvm::BinaryOperator::CreateFSub(extract,rv, "FtoFA", bb);
+                		store=llvm::InsertElementInst::Create(loc,sub,idx,"",bb);
+                		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+			}
+        	}
+		else {
+			swiz=l->GetField()->GetName();
+                	llvm::Constant *idx;
+                	for(int i=0;i<strlen(swiz); i++) {
+                    		if(swiz[i] == 'x')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                   	 	else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		loc=new llvm::LoadInst(la,"",bb);
+                    		llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+				llvm::Value *extract2=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+                    		llvm::Value *extract1=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
+				llvm::Value *sub = llvm::BinaryOperator::CreateFSub(extract2,extract1, "FAtoFA", bb);
+				loc=new llvm::LoadInst(la,"",bb);
+                    		store=llvm::InsertElementInst::Create(loc,sub,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+                	}
+			//std::cerr<<"Assign Vec to FA"<<endl<<std::flush;		
+		}		
+	    }
+	    else{
+		int veclen=0;
+		if (lv->getType()==irgen->GetType(Type::vec2Type))
+			veclen=2;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=3;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=4;
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *ridx;
+			if (strlen(rswiz)>1)
+                	  for(int i=0;i<strlen(rswiz); i++) {
+                    			if(rswiz[i] == 'x')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    			else if(rswiz[i] == 'y')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    			else if(rswiz[i] == 'z')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    			else if(rswiz[i] == 'w')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *sub = llvm::BinaryOperator::CreateFSub(extract2,extract1, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,sub,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+		    	  }
+			if (strlen(rswiz)==1)
+			{
+				if(rswiz[0] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[0] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[0] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[0] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				for (int i=0;i<veclen;i++)
+				{
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *sub = llvm::BinaryOperator::CreateFSub(extract2,extract1, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,sub,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+				}
+			}
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            	    	for (int i=0;i<veclen;i++)
+			{
+				lv=this->left->Emit();
+				llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+		    		llvm::Value *extract=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    		llvm::Value *sub = llvm::BinaryOperator::CreateFSub(extract,rv, "FAtoVec", bb);
+                    		store=llvm::InsertElementInst::Create(lv,sub,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+			}	
+        	}
+		else {
+			llvm::Value *sub = llvm::BinaryOperator::CreateFSub(lv, rv, "VectoVec", bb);
+			llvm::Value *in = new llvm::StoreInst(sub, loc, bb);
+                }		    	
 	    }
     }
         else if(op->IsOp("*=")) {
-            if(lv->getType() == irgen->GetType(Type::floatType)){
-            	llvm::Value *mul = llvm::BinaryOperator::CreateFMul(lv, rv, "MulEqual", bb);
-		llvm::Value *in = new llvm::StoreInst(mul, loc, bb);
+            if(!l&&(lv->getType() == irgen->GetType(Type::floatType))){
+               if (r){
+			//std::cerr<<"Assign FA to Float"<<endl<<std::flush;
+		        llvm::Value *ra = r->EmitAddress();
+			rswiz=r->GetField()->GetName();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+			llvm::Constant *ridx;
+			for(int i=0;i<strlen(rswiz); i++){
+				 if(rswiz[i] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+				 else if(rswiz[i] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		 else if(rswiz[i] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+				 else if(rswiz[i] == 'w')
+					ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				 
+			         llvm::Value *extract=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+				 llvm::Value *mul = llvm::BinaryOperator::CreateFMul(lv, extract, "RFloatPlusEqual", bb);
+				 llvm::Value *in = new llvm::StoreInst(mul, loc, bb);
+			}            	        	
+	       }
+	       else {
+			llvm::Value *mul = llvm::BinaryOperator::CreateFMul(lv, rv, "LFloatPlusEqual", bb);
+			llvm::Value *in = new llvm::StoreInst(mul, loc, bb);			
+	       }
 	    }
 	    else if(lv->getType() == irgen->GetType(Type::intType)) {
-	     	llvm::Value *mul = llvm::BinaryOperator::CreateMul(lv, rv, "MulEqual", bb);
-		llvm::Value *in = new llvm::StoreInst(mul, loc, bb);  	
+		llvm::Value *mul = llvm::BinaryOperator::CreateMul(lv, rv, "IntPlusEqual", bb);
+		llvm::Value *in = new llvm::StoreInst(mul, loc, bb);   	
+	    }
+	    else if (l){
+		llvm::Value* la=l->EmitAddress();		
+		//Field Access
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	swiz=l->GetField()->GetName();
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *idx;
+                	llvm::Constant *ridx;
+                	for(int i=0;i<strlen(swiz); i++) {
+				int j=0;
+				if (strlen(rswiz)>1)
+					j=i;
+                    		if(swiz[i] == 'x')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		if(rswiz[j] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[j] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[j] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[j] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		loc=new llvm::LoadInst(la,"",bb);
+                    		llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    		llvm::Value *extract2=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+		    		llvm::Value *mul = llvm::BinaryOperator::CreateFMul(extract1,extract2, "FAtoFA", bb);
+				loc=new llvm::LoadInst(la,"",bb);
+                    		store=llvm::InsertElementInst::Create(loc,mul,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+		    }
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            		swiz=l->GetField()->GetName();
+            		llvm::Constant *idx;			
+                	//std::cerr<<"Assign float to FA"<<endl<<std::flush;
+            		for(int i=0;i<strlen(swiz); i++) {
+                		if(swiz[i] == 'x')
+                    			idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                   		else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                   		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);                		            		
+				loc=new llvm::LoadInst(la,"",bb);
+		        	llvm::Value *extract=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+				llvm::Value *mul = llvm::BinaryOperator::CreateFMul(extract,rv, "FtoFA", bb);
+                		store=llvm::InsertElementInst::Create(loc,mul,idx,"",bb);
+                		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+			}
+        	}
+		else {
+			swiz=l->GetField()->GetName();
+                	llvm::Constant *idx;
+                	for(int i=0;i<strlen(swiz); i++) {
+                    		if(swiz[i] == 'x')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                   	 	else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		loc=new llvm::LoadInst(la,"",bb);
+                    		llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+				llvm::Value *extract2=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+                    		llvm::Value *extract1=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
+				llvm::Value *mul = llvm::BinaryOperator::CreateFMul(extract1,extract2, "FAtoFA", bb);
+				loc=new llvm::LoadInst(la,"",bb);
+                    		store=llvm::InsertElementInst::Create(loc,mul,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+                	}
+			//std::cerr<<"Assign Vec to FA"<<endl<<std::flush;		
+		}		
+	    }
+	    else{
+		int veclen=0;
+		if (lv->getType()==irgen->GetType(Type::vec2Type))
+			veclen=2;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=3;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=4;
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *ridx;
+			if (strlen(rswiz)>1)
+                	  for(int i=0;i<strlen(rswiz); i++) {
+                    			if(rswiz[i] == 'x')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    			else if(rswiz[i] == 'y')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    			else if(rswiz[i] == 'z')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    			else if(rswiz[i] == 'w')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *mul = llvm::BinaryOperator::CreateFMul(extract1,extract2, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,mul,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+		    	  }
+			if (strlen(rswiz)==1)
+			{
+				if(rswiz[0] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[0] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[0] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[0] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				for (int i=0;i<veclen;i++)
+				{
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *mul = llvm::BinaryOperator::CreateFMul(extract1,extract2, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,mul,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+				}
+			}
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            	    	for (int i=0;i<veclen;i++)
+			{
+				lv=this->left->Emit();
+				llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+		    		llvm::Value *extract=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    		llvm::Value *mul = llvm::BinaryOperator::CreateFMul(extract,rv, "FAtoVec", bb);
+                    		store=llvm::InsertElementInst::Create(lv,mul,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+			}	
+        	}
+		else {
+			llvm::Value *mul = llvm::BinaryOperator::CreateFMul(lv, rv, "VectoVec", bb);
+			llvm::Value *in = new llvm::StoreInst(mul, loc, bb);
+                }		    	
 	    }
         }
         else if(op->IsOp("/=")) {
-	    if(lv->getType() == irgen->GetType(Type::floatType)){
-		llvm::Value *div = llvm::BinaryOperator::CreateFDiv(lv, rv, "DivEqual", bb);
-		llvm::Value *in = new llvm::StoreInst(div, loc, bb);
+	    if(!l&&(lv->getType() == irgen->GetType(Type::floatType))){
+               if (r){
+			//std::cerr<<"Assign FA to Float"<<endl<<std::flush;
+		        llvm::Value *ra = r->EmitAddress();
+			rswiz=r->GetField()->GetName();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+			llvm::Constant *ridx;
+			for(int i=0;i<strlen(rswiz); i++){
+				 if(rswiz[i] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+				 else if(rswiz[i] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		 else if(rswiz[i] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+				 else if(rswiz[i] == 'w')
+					ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				 
+			         llvm::Value *extract=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+				 llvm::Value *div = llvm::BinaryOperator::CreateFDiv(lv, extract, "RFloatPlusEqual", bb);
+				 llvm::Value *in = new llvm::StoreInst(div, loc, bb);
+			}            	        	
+	       }
+	       else {
+			llvm::Value *div = llvm::BinaryOperator::CreateFDiv(lv, rv, "LFloatPlusEqual", bb);
+			llvm::Value *in = new llvm::StoreInst(div, loc, bb);			
+	       }
 	    }
 	    else if(lv->getType() == irgen->GetType(Type::intType)) {
-		llvm::Value *div = llvm::BinaryOperator::CreateSDiv(lv, rv, "DivEqual", bb);
+		llvm::Value *div = llvm::BinaryOperator::CreateSDiv(lv, rv, "IntPlusEqual", bb);
 		llvm::Value *in = new llvm::StoreInst(div, loc, bb);   	
+	    }
+	    else if (l){
+		llvm::Value* la=l->EmitAddress();		
+		//Field Access
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	swiz=l->GetField()->GetName();
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *idx;
+                	llvm::Constant *ridx;
+                	for(int i=0;i<strlen(swiz); i++) {
+				int j=0;
+				if (strlen(rswiz)>1)
+					j=i;
+                    		if(swiz[i] == 'x')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		if(rswiz[j] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[j] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[j] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[j] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		loc=new llvm::LoadInst(la,"",bb);
+                    		llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    		llvm::Value *extract2=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+		    		llvm::Value *div = llvm::BinaryOperator::CreateFDiv(extract2,extract1, "FAtoFA", bb);
+				loc=new llvm::LoadInst(la,"",bb);
+                    		store=llvm::InsertElementInst::Create(loc,div,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+		    }
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            		swiz=l->GetField()->GetName();
+            		llvm::Constant *idx;			
+                	//std::cerr<<"Assign float to FA"<<endl<<std::flush;
+            		for(int i=0;i<strlen(swiz); i++) {
+                		if(swiz[i] == 'x')
+                    			idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                   		else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                   		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);                		            		
+				loc=new llvm::LoadInst(la,"",bb);
+		        	llvm::Value *extract=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+				llvm::Value *div = llvm::BinaryOperator::CreateFDiv(extract,rv, "FtoFA", bb);
+                		store=llvm::InsertElementInst::Create(loc,div,idx,"",bb);
+                		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+			}
+        	}
+		else {
+			swiz=l->GetField()->GetName();
+                	llvm::Constant *idx;
+                	for(int i=0;i<strlen(swiz); i++) {
+                    		if(swiz[i] == 'x')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(swiz[i] == 'y')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                   	 	else if(swiz[i] == 'z')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(swiz[i] == 'w')
+                        		idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+                    		loc=new llvm::LoadInst(la,"",bb);
+                    		llvm::Constant* ridx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+				llvm::Value *extract2=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+                    		llvm::Value *extract1=llvm::ExtractElementInst::Create(rv,ridx,"",bb);
+				llvm::Value *div = llvm::BinaryOperator::CreateFDiv(extract2,extract1, "FAtoFA", bb);
+				loc=new llvm::LoadInst(la,"",bb);
+                    		store=llvm::InsertElementInst::Create(loc,div,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+                	}
+			//std::cerr<<"Assign Vec to FA"<<endl<<std::flush;		
+		}		
+	    }
+	    else{
+		int veclen=0;
+		if (lv->getType()==irgen->GetType(Type::vec2Type))
+			veclen=2;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=3;
+		else if (lv->getType()==irgen->GetType(Type::vec3Type))
+			veclen=4;
+		if (r){
+			llvm::Value *ra = r->EmitAddress();
+                	llvm::Value *rloc=new llvm::LoadInst(ra,"",bb);
+                	rswiz=r->GetField()->GetName();
+                	llvm::Constant *ridx;
+			if (strlen(rswiz)>1)
+                	  for(int i=0;i<strlen(rswiz); i++) {
+                    			if(rswiz[i] == 'x')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    			else if(rswiz[i] == 'y')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    			else if(rswiz[i] == 'z')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    			else if(rswiz[i] == 'w')
+                        			ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *div = llvm::BinaryOperator::CreateFDiv(extract2,extract1, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,div,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+		    	  }
+			if (strlen(rswiz)==1)
+			{
+				if(rswiz[0] == 'x')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+                    		else if(rswiz[0] == 'y')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+                    		else if(rswiz[0] == 'z')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+                    		else if(rswiz[0] == 'w')
+                        		ridx = llvm::ConstantInt::get(irgen->GetIntType(), 3);
+				for (int i=0;i<veclen;i++)
+				{
+					lv=this->left->Emit();
+					llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+                    			llvm::Value *extract1=llvm::ExtractElementInst::Create(rloc,ridx,"",bb);
+		    			llvm::Value *extract2=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    			llvm::Value *div = llvm::BinaryOperator::CreateFDiv(extract2,extract1, "FAtoVec", bb);
+                    			store=llvm::InsertElementInst::Create(lv,div,idx,"",bb);
+                    			llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+				}
+			}
+		}
+		else if (rv->getType() == irgen->GetType(Type::floatType)){
+            	    	for (int i=0;i<veclen;i++)
+			{
+				lv=this->left->Emit();
+				llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+		    		llvm::Value *extract=llvm::ExtractElementInst::Create(lv,idx,"",bb);				
+		    		llvm::Value *div = llvm::BinaryOperator::CreateFDiv(extract,rv, "FAtoVec", bb);
+                    		store=llvm::InsertElementInst::Create(lv,div,idx,"",bb);
+                    		llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);
+			}	
+        	}
+		else {
+			llvm::Value *div = llvm::BinaryOperator::CreateFDiv(lv, rv, "VectoVec", bb);
+			llvm::Value *in = new llvm::StoreInst(div, loc, bb);
+                }		    	
 	    }
         }
     return rv;
