@@ -1,0 +1,4 @@
+funct: test
+gin: v2, vec2, 1.0, 2.0
+gin: v4, vec4, 1.0, 2.0, 3.0, 4.0
+

@@ -1031,32 +1031,89 @@ llvm::Value *AssignExpr::Emit() {
 llvm::Value *PostfixExpr::Emit() {
     Operator *op = this->op;
     llvm::Value *v = left->Emit();
+    char *swiz=NULL;
     llvm::LoadInst *ld = llvm::cast<llvm::LoadInst>(v);
     llvm::Value *loc = ld->getPointerOperand();
-
+    FieldAccess* l=dynamic_cast<FieldAccess*>(left);
     llvm::BasicBlock *bb = irgen->GetBasicBlock();
     llvm::Value *val = llvm::ConstantInt::get(irgen->GetIntType(), 1);
 
     if(v->getType() == irgen->GetType(Type::intType)) {
+	    
         if(op->IsOp("++")) {
             llvm::Value *dec = llvm::BinaryOperator::CreateAdd(v, val, "", bb);
             llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
         }
-        else if(op->IsOp("--")) {
+        else  {
             llvm::Value *dec = llvm::BinaryOperator::CreateSub(v, val, "", bb);
             llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
         }
     }
-
-    else if(v->getType() == irgen->GetType(Type::floatType)){
+    else if(!l&&v->getType() == irgen->GetType(Type::floatType)){
+	    llvm::Value *val = llvm::ConstantFP::get(irgen->GetFloatType(), 1.0);
         if(op->IsOp("++")){
+	    
             llvm::Value *dec = llvm::BinaryOperator::CreateFAdd(v, val, "", bb);
             llvm::Value* in = new llvm::StoreInst(dec, loc, bb);
         }
-        else if(op->IsOp("--")){
+        else {
             llvm::Value *dec = llvm::BinaryOperator::CreateFSub(v, val, "", bb);
             llvm::Value *in = new llvm::StoreInst(dec, loc, bb);
         }
+    }
+    else if (l)
+    {
+	   //std::cerr<<"We are here1"<<endl;
+	   llvm::Value *val = llvm::ConstantFP::get(irgen->GetFloatType(), 1.0);
+	   llvm::Value* la=l->EmitAddress();
+	   llvm::Value *store;
+	   llvm::Value *lv;
+   	   swiz=l->GetField()->GetName();
+	   llvm::Constant *idx;
+	   for(int i=0;i<strlen(swiz); i++) {
+           	if(swiz[i] == 'x')
+			idx = llvm::ConstantInt::get(irgen->GetIntType(), 0);
+		else if(swiz[i] == 'y')
+			idx = llvm::ConstantInt::get(irgen->GetIntType(), 1);
+		else if(swiz[i] == 'z')
+			idx = llvm::ConstantInt::get(irgen->GetIntType(), 2);
+		else if(swiz[i] == 'w')
+			idx = llvm::ConstantInt::get(irgen->GetIntType(), 3);                		            		
+		loc=new llvm::LoadInst(la,"",bb);
+		llvm::Value *extract=llvm::ExtractElementInst::Create(loc,idx,"",bb);
+		if(op->IsOp("++"))
+			lv = llvm::BinaryOperator::CreateFAdd(extract,val, "FA", bb);			
+		else
+			lv = llvm::BinaryOperator::CreateFSub(extract,val, "FA", bb);
+		store=llvm::InsertElementInst::Create(loc,lv,idx,"",bb);
+		llvm::Value* result = new llvm::StoreInst(store, la, "",bb);
+	   }	   
+    }
+    else
+    {
+	   //std::cerr<<"We are here2"<<endl;
+    	   llvm::Value *val = llvm::ConstantFP::get(irgen->GetFloatType(), 1.0);
+	   int veclen=0;
+	   llvm::Value *lv;
+	   llvm::Value *store;
+	   if (v->getType()==irgen->GetType(Type::vec2Type))
+		veclen=2;
+	   else if (v->getType()==irgen->GetType(Type::vec3Type))
+		veclen=3;
+	   else if (v->getType()==irgen->GetType(Type::vec3Type))
+		veclen=4;
+	   for (int i=0;i<veclen;i++)
+	   {
+	   	v=this->left->Emit();
+		llvm::Constant* idx=llvm::ConstantInt::get(irgen->GetIntType(), i);
+		llvm::Value *extract=llvm::ExtractElementInst::Create(v,idx,"",bb);				
+		if(op->IsOp("++"))
+			lv = llvm::BinaryOperator::CreateFAdd(extract,val, "FA", bb);			
+		else
+			lv = llvm::BinaryOperator::CreateFSub(extract,val, "FA", bb);
+                store=llvm::InsertElementInst::Create(v,lv,idx,"",bb);    			
+                llvm::Value* result = new llvm::StoreInst(store, loc, "",bb);	   
+	   }	   	   
     }
     return v;
 }
