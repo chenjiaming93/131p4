@@ -45,25 +45,25 @@ llvm::Value *VarDecl::Emit() {
     llvm::Module *module = irgen->GetOrCreateModule("glsl.bc");
     llvm::Type *type = irgen->GetType(this->GetType());
     llvm::Value* val;
-    if (GetAssignTo())
-    	val=GetAssignTo()->Emit();	
-    else   
-    	val=llvm::Constant::getNullValue(type);  
+    if(GetAssignTo())
+        val=GetAssignTo()->Emit();
+    else
+        val=llvm::Constant::getNullValue(type);  
     // Global Var
     if(symtab->global == true) {
-	llvm::Constant* init = dynamic_cast<llvm::Constant*>(val);
-        llvm::GlobalVariable *var = new llvm::GlobalVariable(*irgen->GetOrCreateModule("glsl.bc.bc"), type, isConst(), llvm::GlobalValue::ExternalLinkage,init, this->GetIdentifier()->GetName());
+        llvm::Constant* init = dynamic_cast<llvm::Constant*>(val);
+        llvm::GlobalVariable *var = new llvm::GlobalVariable(*irgen->GetOrCreateModule("glsl.bc.bc"), type, isConst(), llvm::GlobalValue::ExternalLinkage, init, this->GetIdentifier()->GetName());
         symtab->AddSymbol(this->GetIdentifier()->GetName(), var);
         return var;
     }   
     // Local var
-    else {
+    else{
         char *name = this->GetIdentifier()->GetName();
         llvm::BasicBlock *bb = Node::irgen->GetBasicBlock();
         llvm::Value *value =  new llvm::AllocaInst(type, name, bb);
-	if (GetAssignTo())
-	   llvm::Value* store=new llvm::StoreInst(val,value,bb);		
-        symtab->AddSymbol(this->GetIdentifier()->GetName(), value); 
+        if(GetAssignTo())
+            llvm::Value* store=new llvm::StoreInst(val,value,bb);
+        symtab->AddSymbol(this->GetIdentifier()->GetName(), value);
         return value;
     }
 }

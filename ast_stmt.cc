@@ -29,7 +29,6 @@ llvm::Value *Program::Emit() {
     for(int i = 0; i < decls->NumElements(); i++) {
         decls->Nth(i)->Emit();
     }
-    //module->dump();
     llvm::WriteBitcodeToFile(module, llvm::outs());
     return NULL;
 }
@@ -49,7 +48,6 @@ llvm::Value *ForStmt::Emit() {
     llvm::BasicBlock *hb = llvm::BasicBlock::Create(*context, "header", f);
 
     init->Emit();
-
     llvm::BranchInst::Create(hb, cb);
     hb->moveAfter(cb);
     irgen->SetBasicBlock(hb);
@@ -58,9 +56,9 @@ llvm::Value *ForStmt::Emit() {
     llvm::BranchInst::Create(db, fb, testVal, hb);
     irgen->SetBasicBlock(db);
 
-    irgen->lbs->push(fb);
     irgen->fbs->push(fb);
     irgen->cbs->push(sb);
+    irgen->lbs->push(fb);
 
     body->Emit();
     if(db->getTerminator() == NULL)
@@ -85,9 +83,9 @@ llvm::Value *ForStmt::Emit() {
         }
     }
 
-    irgen->lbs->pop();
     irgen->fbs->pop();
     irgen->cbs->pop();
+    irgen->lbs->pop();
 
     symtab->Pop();
     return NULL;
@@ -106,9 +104,9 @@ llvm::Value *WhileStmt::Emit() {
     llvm::BasicBlock *fb = llvm::BasicBlock::Create(*context, "footer", f);
     llvm::BasicBlock *db = llvm::BasicBlock::Create(*context, "body", f);
 
-    irgen->lbs->push(fb);
     irgen->fbs->push(fb);
-    irgen->cbs->push(hb); 
+    irgen->cbs->push(hb);
+    irgen->lbs->push(fb);
 
     llvm::BranchInst::Create(hb, cb);
     hb->moveAfter(cb);
@@ -138,9 +136,9 @@ llvm::Value *WhileStmt::Emit() {
         }
     }
 
-    irgen->lbs->pop();
     irgen->fbs->pop();
-    irgen->cbs->pop(); 
+    irgen->cbs->pop();
+    irgen->lbs->pop();
 
     symtab->Pop();
     return NULL;
@@ -177,10 +175,10 @@ llvm::Value *IfStmt::Emit() {
 
     fb->moveAfter(eb);
 
-    if (eb->getTerminator() == NULL && elseBody != NULL)
-        llvm::BranchInst::Create(fb, eb);
-    else if(pred_begin(eb) == pred_end(eb))
+    if(pred_begin(eb) == pred_end(eb))
         new llvm::UnreachableInst(*context, eb);
+    else if (eb->getTerminator() == NULL && elseBody != NULL)
+        llvm::BranchInst::Create(fb, eb);
 
     if(pred_begin(fb) == pred_end(fb)) {
         new llvm::UnreachableInst(*context, fb);
@@ -216,17 +214,18 @@ llvm::Value *SwitchStmt::Emit() {
     List<llvm::BasicBlock*> *bbList = new List<llvm::BasicBlock*>;
 
     for(int i = 0; i < cases->NumElements(); i++) {
-        if(dynamic_cast<Case*>(cases->Nth(i)) != NULL) {
+        if(dynamic_cast<Default*>(cases->Nth(i)) != NULL)
+            bbList->Append(dflt);
+        else if(dynamic_cast<Case*>(cases->Nth(i)) != NULL) {
             llvm::BasicBlock* cs = llvm::BasicBlock::Create(*context, "case", f);
             bbList->Append(cs);
         }
-        else if(dynamic_cast<Default*>(cases->Nth(i)) != NULL)
-            bbList->Append(dflt);
     }
 
     llvm::BasicBlock* fb = llvm::BasicBlock::Create(*context, "footer", f);
-    irgen->lbs->push(fb);
     irgen->fbs->push(fb);
+    irgen->lbs->push(fb);
+
     llvm::SwitchInst *sw = llvm::SwitchInst::Create(e, fb, cases->NumElements(), irgen->GetBasicBlock());
     Stmt* stmt = NULL;
     int count = 0;
@@ -284,8 +283,6 @@ llvm::Value *SwitchStmt::Emit() {
         }
 
         if(cb != NULL) {
-            //b->Emit();
-            //count++;
             if(cb->getTerminator() == NULL && dynamic_cast<Case*>(cases->Nth(i)) != NULL)
                 llvm::BranchInst::Create(bbList->Nth(count), cb);
         }
